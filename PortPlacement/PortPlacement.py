@@ -113,7 +113,7 @@ class PortPlacementWidget:
     self.targetSelector.nodeTypes = ["vtkMRMLAnnotationFiducialNode"]
     self.targetSelector.addEnabled = False
     self.targetSelector.removeEnabled = False
-    self.targetSelector.noneEnabled = False
+    self.targetSelector.noneEnabled = True
     self.targetSelector.setMRMLScene(slicer.mrmlScene)
     self.targetSelector.setToolTip("Pick the surgical targets that the tools should try to reach.")
     parametersFormLayout.addRow("Target Point: ", self.targetSelector)
@@ -133,34 +133,39 @@ class PortPlacementWidget:
     #
     # Update button
     #
-    self.updateButton = qt.QPushButton("Update")
-    self.updateButton.toolTip = "Update the port placement visualization"
-    self.updateButton.enabled = True
+    self.updateButton = qt.QPushButton("Update Ports")
+    self.updateButton.toolTip = "Update visualized ports"
     parametersFormLayout.addRow(self.updateButton)
+
+    #
+    # Retarget button
+    #
+    self.retargetButton = qt.QPushButton("Retarget Tools")
+    self.retargetButton.toolTip = "Reset tool orientations to face target fiducial"
+    parametersFormLayout.addRow(self.retargetButton)
 
     # connections
     self.updateButton.connect('clicked(bool)', self.onUpdateButton)
+    self.retargetButton.connect('clicked(bool)', self.onRetargetButton)
     self.radiusSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
     self.lengthSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
 
-    # set default values for tool shape
-    self.onToolShapeChanged()
+    # instantiate port placement module logic
+    self.logic = PortPlacementLogic(self.radiusSpinBox.value, self.lengthSpinBox.value)
 
   def onUpdateButton(self):
-    logic = PortPlacementLogic()
-    logic.run(self.targetSelector.currentNode(), 
-              self.portListSelector.currentNode(),
-              self.toolPolyData)
+    if self.portListSelector.currentNode():
+      self.logic.updatePorts(self.portListSelector.currentNode())
+
+  def onRetargetButton(self):
+    if (self.targetSelector.currentNode()):
+      self.logic.retargetTools(self.targetSelector.currentNode())
 
   def onToolShapeChanged(self):
-    toolSrc = vtk.vtkCylinderSource()
-    toolSrc.SetRadius(self.radiusSpinBox.value)
-    toolSrc.SetHeight(self.lengthSpinBox.value)
-    self.toolPolyData = toolSrc.GetOutput()
-    self.onUpdateButton()
+    self.logic.setToolShape(self.radiusSpinBox.value, self.lengthSpinBox.value)
 
   def onReload(self,moduleName="PortPlacement"):
     """Generic reload method for any scripted module.
@@ -225,78 +230,146 @@ class PortPlacementLogic:
   this class and make use of the functionality without
   requiring an instance of the Widget
   """
-  def __init__(self):
-    pass
 
-  def run(self,targetFid,portFidList,toolPolyData):
+  class Tool:
+    def __init__(self, model, modelDisplay, transform):
+      self.model = model
+      self.modelDisplay = modelDisplay
+      self.transform = transform
+
+  def __init__(self, initToolRadius, initToolLength):
+    self.fiducialToolMap = {}
+    self.toolSrc = vtk.vtkCylinderSource()
+    self.setToolShape(initToolRadius, initToolLength)
+
+  def setToolShape(self, radius, length):
+    self.toolSrc.SetRadius(radius)
+    self.toolSrc.SetHeight(length)
+    self.toolPolyData = self.toolSrc.GetOutput()
+
+    for portFid in self.fiducialToolMap:
+      self.fiducialToolMap[portFid].model.SetAndObservePolyData(self.toolPolyData)
+
+  def updatePorts(self, newPortAnnotationHierarchy):
+    import numpy
+    # turn the annotation hierarchy into a list of annotations
+    collection = vtk.vtkCollection()
+    newPortAnnotationHierarchy.GetChildrenDisplayableNodes(collection)
+    newPortFidList = [collection.GetItemAsObject(i) for i in
+                      xrange(collection.GetNumberOfItems())]
+
+    # first remove ports which aren't in the new list
+    for portFid in [fid for fid in self.fiducialToolMap if not fid in newPortFidList]:
+      tool = self.fiducialToolMap[portFid]
+      slicer.mrmlScene.RemoveNode(tool.model)
+      #slicer.mrmlScene.RemoveNode(tool.modelDisplay)
+      slicer.mrmlScene.RemoveNode(tool.transform)
+      del self.fiducialToolMap[portFid]
+
+    # If a port in the new list is already in the old list, update
+    # the old port's data
+    #
+    # We take the following steps for each pre-existing port in the new list:
+    # 1. Get tool's current port position (from its transform node)
+    # 2. Get tool's new port position (from the fiducial's position)
+    # 3. Create a translation transform from the current position to the new one
+    # 4. Apply this transform to the tool's transform
+    for portFid in [fid for fid in self.fiducialToolMap if fid in newPortFidList]:
+      tool = self.fiducialToolMap[portFid]
+      mat = vtk.vtkMatrix4x4()
+      tool.transform.GetMatrixTransformToWorld(mat)
+
+      t = vtk.vtkTransform()
+      t.SetMatrix(mat)
+      oldPosition = [0,0,0]
+      t.GetPosition(oldPosition)
+      oldPosition = numpy.array(oldPosition)
+
+      newPosition = [0,0,0]
+      portFid.GetFiducialCoordinates(newPosition)
+      newPosition = numpy.array(newPosition)
+
+      positionChange = newPosition - oldPosition
+
+      t.Identity()
+      t.Translate(positionChange.tolist())
+      tool.transform.ApplyTransformMatrix(t.GetMatrix())
+
+    # Now we add the new ports from the new port list
+    # 
+    # If stuff doesn't work, check to make sure that RemoveNode and
+    # AddNode are referring to the same objects
+    for portFid in [fid for fid in newPortFidList if not fid in self.fiducialToolMap]:
+      # create the tool model
+      toolModel = slicer.vtkMRMLModelNode()
+      toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
+      toolModel.SetAndObservePolyData(self.toolPolyData)
+      slicer.mrmlScene.AddNode(toolModel)
+
+      # and then our model display node
+      modelDisplay = slicer.vtkMRMLModelDisplayNode()
+      modelDisplay.SetColor(0,1,1) # cyan
+      slicer.mrmlScene.AddNode(modelDisplay)
+      toolModel.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+
+      # and our transform node to correspond with the fiducial's position
+      fidPos = [0,0,0]
+      portFid.GetFiducialCoordinates(fidPos)
+      t = vtk.vtkTransform()
+      t.Translate(fidPos)
+      transformNode = slicer.vtkMRMLLinearTransformNode()
+      transformNode.ApplyTransformMatrix(t.GetMatrix())
+      transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
+      slicer.mrmlScene.AddNode(transformNode)
+
+      # apply the new transform to our tool
+      toolModel.SetAndObserveTransformNodeID(transformNode.GetID())
+
+      # finally, add the model, model display, and transform to our fiducialToolMap
+      self.fiducialToolMap[portFid] = self.Tool(toolModel, modelDisplay, transformNode)
+
+  def retargetTools(self, targetFid):
     import numpy
     import numpy.linalg
     import math
+    # Get target coordinates
+    targetLoc = [0,0,0]
+    targetFid.GetFiducialCoordinates(targetLoc)
+    targetLoc = numpy.array(targetLoc)
 
-    if targetFid and portFidList:
-      # Get target coordinates
-      targetLoc = [0,0,0]
-      targetFid.GetFiducialCoordinates(targetLoc)
-      targetLoc = numpy.array(targetLoc)
-      
-      # Get port list
-      portLocations = []
-      collection = vtk.vtkCollection()
-      portFidList.GetChildrenDisplayableNodes(collection)
-      for fid in [collection.GetItemAsObject(i) for i in 
-                  xrange(collection.GetNumberOfItems())]:
-        coords = [0,0,0]
-        fid.GetFiducialCoordinates(coords)
-        portLocations.append(numpy.array(coords))
+    # Iterate through port tool map and retarget their associated tools
+    for portFid in self.fiducialToolMap:
+      portLoc = [0,0,0]
+      portFid.GetFiducialCoordinates(portLoc)
+      portLoc = numpy.array(portLoc)
 
-      # Let's make some cylinders!
-      # We start with generating the polygonal data
-      # toolSrc = vtk.vtkCylinderSource()
-      # toolSrc.SetHeight(150)
-      # toolSrc.SetRadius(2.0)
-      # toolSrc.SetResolution(100)
-      # toolPolyData = toolSrc.GetOutput()
+      # Assume tools get drawn aligned with the global y-axis. We
+      # want to transform the tool to be oriented along the port
+      # toward the target point. We begin by finding the axis to
+      # rotate the tool by, which is the cross product of the
+      # global y and the target vector
+      targetVec = targetLoc - portLoc
+      targetVec = targetVec / numpy.linalg.norm(targetVec)
+      rotAxis = numpy.cross(numpy.array([0,1,0]), targetVec)
+      rotAxis = rotAxis / numpy.linalg.norm(rotAxis)
 
-      # Iterate through port locations and create the associated tools
-      for portLoc in portLocations:
-        # First add a tool model to our scene
-        toolModel = slicer.vtkMRMLModelNode()
-        toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
-        toolModel.SetAndObservePolyData(toolPolyData)
-        slicer.mrmlScene.AddNode(toolModel)
+      # get rotation angle and normalize rotation axis
+      angle = math.acos(numpy.dot(numpy.array([0,1,0]), targetVec)) * 180. / math.pi
 
-        # and then our model display node
-        modelDisplay = slicer.vtkMRMLModelDisplayNode()
-        modelDisplay.SetColor(0,1,1) # cyan
-        slicer.mrmlScene.AddNode(modelDisplay)
-        toolModel.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-        
-        # Assume tools get drawn aligned with the global y-axis. We
-        # want to transform the tool to be oriented along the port
-        # toward the target point. We begin by finding the axis to
-        # rotate the tool by, which is the cross product of the
-        # global y and the target vector
-        targetVec = targetLoc - portLoc
-        targetVec = targetVec / numpy.linalg.norm(targetVec)
-        rotAxis = numpy.cross(numpy.array([0,1,0]), targetVec)
-        rotAxis = rotAxis / numpy.linalg.norm(rotAxis)
+      # generate our transform
+      #
+      # We do this by first undo-ing the tool's current transform and
+      # then applying the new one.
+      toolTransform = self.fiducialToolMap[portFid].transform
+      mat = vtk.vtkMatrix4x4()
+      toolTransform.GetMatrixTransformToWorld(mat)
+      t = vtk.vtkTransform()
+      t.SetMatrix(mat)
 
-        # get rotation angle and normalize rotation axis
-        angle = math.acos(numpy.dot(numpy.array([0,1,0]), targetVec)) * 180. / math.pi
-
-        # generate our transform
-        t = vtk.vtkTransform()
-        t.Translate(portLoc.tolist())
-        t.RotateWXYZ(angle, rotAxis.tolist())
-        transformNode = slicer.vtkMRMLLinearTransformNode()
-        transformNode.ApplyTransformMatrix(t.GetMatrix())
-        transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
-        slicer.mrmlScene.AddNode(transformNode)
-
-        # apply the new transform to our tool
-        toolModel.SetAndObserveTransformNodeID(transformNode.GetID())
-
-    return True
+      t.Inverse()
+      t.Translate(portLoc.tolist())
+      t.RotateWXYZ(angle, rotAxis.tolist())
+      toolTransform.ApplyTransformMatrix(t.GetMatrix())
 
 
 class PortPlacementTest(unittest.TestCase):
