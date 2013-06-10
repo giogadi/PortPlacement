@@ -89,6 +89,24 @@ class PortPlacementWidget:
     parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
     #
+    # radius spin box
+    # 
+    self.radiusSpinBox = qt.QDoubleSpinBox()
+    self.radiusSpinBox.setMinimum(0.0)
+    self.radiusSpinBox.setMaximum(10.0)
+    self.radiusSpinBox.setValue(2.0)
+    parametersFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
+
+    #
+    # length spin box
+    #
+    self.lengthSpinBox = qt.QDoubleSpinBox()
+    self.lengthSpinBox.setMinimum(0.0)
+    self.lengthSpinBox.setMaximum(250.0)
+    self.lengthSpinBox.setValue(150.0)
+    parametersFormLayout.addRow("Tool length: ", self.lengthSpinBox)    
+
+    #
     # target selector
     #
     self.targetSelector = slicer.qMRMLNodeComboBox()
@@ -122,18 +140,27 @@ class PortPlacementWidget:
 
     # connections
     self.updateButton.connect('clicked(bool)', self.onUpdateButton)
-    # self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    # self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.radiusSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
+    self.lengthSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
 
-  # def onSelect(self):
-  #   self.UpdateButton.enabled = self.targetSelector.currentNode()
+    # set default values for tool shape
+    self.onToolShapeChanged()
 
   def onUpdateButton(self):
     logic = PortPlacementLogic()
-    logic.run(self.targetSelector.currentNode(), self.portListSelector.currentNode())
+    logic.run(self.targetSelector.currentNode(), 
+              self.portListSelector.currentNode(),
+              self.toolPolyData)
+
+  def onToolShapeChanged(self):
+    toolSrc = vtk.vtkCylinderSource()
+    toolSrc.SetRadius(self.radiusSpinBox.value)
+    toolSrc.SetHeight(self.lengthSpinBox.value)
+    self.toolPolyData = toolSrc.GetOutput()
+    self.onUpdateButton()
 
   def onReload(self,moduleName="PortPlacement"):
     """Generic reload method for any scripted module.
@@ -201,20 +228,7 @@ class PortPlacementLogic:
   def __init__(self):
     pass
 
-  # def hasImageData(self,volumeNode):
-  #   """This is a dummy logic method that 
-  #   returns true if the passed in volume
-  #   node has valid image data
-  #   """
-  #   if not volumeNode:
-  #     print('no volume node')
-  #     return False
-  #   if volumeNode.GetImageData() == None:
-  #     print('no image data')
-  #     return False
-  #   return True
-
-  def run(self,targetFid,portFidList):
+  def run(self,targetFid,portFidList,toolPolyData):
     import numpy
     import numpy.linalg
     import math
@@ -237,34 +251,31 @@ class PortPlacementLogic:
 
       # Let's make some cylinders!
       # We start with generating the polygonal data
-      cylinderSrc = vtk.vtkCylinderSource()
-      cylinderSrc.SetHeight(150)
-      cylinderSrc.SetRadius(2.0)
-      cylinderSrc.SetResolution(100)
-      cylinderPolyData = cylinderSrc.GetOutput()
+      # toolSrc = vtk.vtkCylinderSource()
+      # toolSrc.SetHeight(150)
+      # toolSrc.SetRadius(2.0)
+      # toolSrc.SetResolution(100)
+      # toolPolyData = toolSrc.GetOutput()
 
-      # Go through and make each cylinder
+      # Iterate through port locations and create the associated tools
       for portLoc in portLocations:
-        # First add a cylinder to our scene
-        cylinderModel = slicer.vtkMRMLModelNode()
-        cylinderModel.SetScene(slicer.mrmlScene)
-        cylinderModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
-        cylinderModel.SetAndObservePolyData(cylinderPolyData)
-        slicer.mrmlScene.AddNode(cylinderModel)
+        # First add a tool model to our scene
+        toolModel = slicer.vtkMRMLModelNode()
+        toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
+        toolModel.SetAndObservePolyData(toolPolyData)
+        slicer.mrmlScene.AddNode(toolModel)
 
         # and then our model display node
         modelDisplay = slicer.vtkMRMLModelDisplayNode()
         modelDisplay.SetColor(0,1,1) # cyan
-        modelDisplay.SetScene(slicer.mrmlScene)
-        modelDisplay.SetInputPolyData(cylinderModel.GetPolyData())
         slicer.mrmlScene.AddNode(modelDisplay)
-        cylinderModel.SetAndObserveDisplayNodeID(modelDisplay.GetID())
+        toolModel.SetAndObserveDisplayNodeID(modelDisplay.GetID())
         
-        # Cylinders get drawn aligned with the global axis. We want to
-        # transform the cylinder to be oriented along the port toward
-        # the target point. We begin by finding the axis to rotate the
-        # cylinder by, which is the cross product of the global y and
-        # the target vector
+        # Assume tools get drawn aligned with the global y-axis. We
+        # want to transform the tool to be oriented along the port
+        # toward the target point. We begin by finding the axis to
+        # rotate the tool by, which is the cross product of the
+        # global y and the target vector
         targetVec = targetLoc - portLoc
         targetVec = targetVec / numpy.linalg.norm(targetVec)
         rotAxis = numpy.cross(numpy.array([0,1,0]), targetVec)
@@ -277,14 +288,13 @@ class PortPlacementLogic:
         t = vtk.vtkTransform()
         t.Translate(portLoc.tolist())
         t.RotateWXYZ(angle, rotAxis.tolist())
-        cylinderModel.ApplyTransform(t)
-        # transformNode = slicer.vtkMRMLLinearTransformNode()
-        # transformNode.ApplyTransformMatrix(t.GetMatrix())
-        # transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
-        # slicer.mrmlScene.AddNode(transformNode)
+        transformNode = slicer.vtkMRMLLinearTransformNode()
+        transformNode.ApplyTransformMatrix(t.GetMatrix())
+        transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
+        slicer.mrmlScene.AddNode(transformNode)
 
-        # # apply the new transform to our cylinder
-        # cylinderModel.SetAndObserveTransformNodeID(transformNode.GetID())
+        # apply the new transform to our tool
+        toolModel.SetAndObserveTransformNodeID(transformNode.GetID())
 
     return True
 
