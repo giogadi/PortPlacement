@@ -79,14 +79,14 @@ class PortPlacementWidget:
     self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
 
     #
-    # Parameters Area
+    # viz options area
     #
-    parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-    parametersCollapsibleButton.text = "Parameters"
-    self.layout.addWidget(parametersCollapsibleButton)
+    vizOptionsCollapsibleButton = ctk.ctkCollapsibleButton()
+    vizOptionsCollapsibleButton.text = "Laparoscopic Tool Options"
+    self.layout.addWidget(vizOptionsCollapsibleButton)
 
     # Layout within the dummy collapsible button
-    parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
+    vizOptionsFormLayout = qt.QFormLayout(vizOptionsCollapsibleButton)
 
     #
     # radius spin box
@@ -95,7 +95,7 @@ class PortPlacementWidget:
     self.radiusSpinBox.setMinimum(0.0)
     self.radiusSpinBox.setMaximum(10.0)
     self.radiusSpinBox.setValue(2.0)
-    parametersFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
+    vizOptionsFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
 
     #
     # length spin box
@@ -104,19 +104,15 @@ class PortPlacementWidget:
     self.lengthSpinBox.setMinimum(0.0)
     self.lengthSpinBox.setMaximum(250.0)
     self.lengthSpinBox.setValue(150.0)
-    parametersFormLayout.addRow("Tool length: ", self.lengthSpinBox)    
+    vizOptionsFormLayout.addRow("Tool length: ", self.lengthSpinBox)
 
     #
-    # target selector
+    # Inputs Area
     #
-    self.targetSelector = slicer.qMRMLNodeComboBox()
-    self.targetSelector.nodeTypes = ["vtkMRMLAnnotationFiducialNode"]
-    self.targetSelector.addEnabled = False
-    self.targetSelector.removeEnabled = False
-    self.targetSelector.noneEnabled = True
-    self.targetSelector.setMRMLScene(slicer.mrmlScene)
-    self.targetSelector.setToolTip("Pick the surgical targets that the tools should try to reach.")
-    parametersFormLayout.addRow("Target Point: ", self.targetSelector)
+    inputsCollapsibleButton = ctk.ctkCollapsibleButton()
+    inputsCollapsibleButton.text = "Ports and Target"
+    self.layout.addWidget(inputsCollapsibleButton)
+    inputsFormLayout = qt.QFormLayout(inputsCollapsibleButton)
 
     #
     # port list selector
@@ -128,21 +124,33 @@ class PortPlacementWidget:
     self.portListSelector.noneEnabled = True
     self.portListSelector.setMRMLScene(slicer.mrmlScene)
     self.portListSelector.setToolTip("Pick the ports through which to insert the tools.")
-    parametersFormLayout.addRow("List of Ports: ", self.portListSelector)
+    inputsFormLayout.addRow("Fiducial List of Port Placements: ", self.portListSelector)
+
+    #
+    # target selector
+    #
+    self.targetSelector = slicer.qMRMLNodeComboBox()
+    self.targetSelector.nodeTypes = ["vtkMRMLAnnotationFiducialNode"]
+    self.targetSelector.addEnabled = False
+    self.targetSelector.removeEnabled = False
+    self.targetSelector.noneEnabled = True
+    self.targetSelector.setMRMLScene(slicer.mrmlScene)
+    self.targetSelector.setToolTip("Pick the surgical target that the tools should face.")
+    inputsFormLayout.addRow("Surgical Target Fiducial: ", self.targetSelector)
 
     #
     # Update button
     #
     self.updateButton = qt.QPushButton("Update Ports")
-    self.updateButton.toolTip = "Update visualized ports"
-    parametersFormLayout.addRow(self.updateButton)
+    self.updateButton.toolTip = "Update Port Locations"
+    inputsFormLayout.addRow(self.updateButton)
 
     #
     # Retarget button
     #
-    self.retargetButton = qt.QPushButton("Retarget Tools")
+    self.retargetButton = qt.QPushButton("Aim Tools at Target")
     self.retargetButton.toolTip = "Reset tool orientations to face target fiducial"
-    parametersFormLayout.addRow(self.retargetButton)
+    inputsFormLayout.addRow(self.retargetButton)
 
     # connections
     self.updateButton.connect('clicked(bool)', self.onUpdateButton)
@@ -157,8 +165,7 @@ class PortPlacementWidget:
     self.logic = PortPlacementLogic(self.radiusSpinBox.value, self.lengthSpinBox.value)
 
   def onUpdateButton(self):
-    if self.portListSelector.currentNode():
-      self.logic.updatePorts(self.portListSelector.currentNode())
+    self.logic.updatePorts(self.portListSelector.currentNode())
 
   def onRetargetButton(self):
     if self.targetSelector.currentNode():
@@ -255,6 +262,17 @@ class PortPlacementLogic:
   # differences.
   def updatePorts(self, newPortAnnotationHierarchy):
     import numpy
+    
+    # If newPortAnnotationHierarchy is None, just clear the tools
+    # (this should be refactored)
+    if not newPortAnnotationHierarchy:
+      for portFid in [fid for fid in self.fiducialToolMap]:
+        tool = self.fiducialToolMap[portFid]
+        slicer.mrmlScene.RemoveNode(tool.model)
+        slicer.mrmlScene.RemoveNode(tool.transform)
+        del self.fiducialToolMap[portFid]
+      return
+                
     # turn the annotation hierarchy into a list of annotations
     collection = vtk.vtkCollection()
     newPortAnnotationHierarchy.GetChildrenDisplayableNodes(collection)
