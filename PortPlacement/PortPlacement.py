@@ -8,10 +8,10 @@ from __main__ import vtk, qt, ctk, slicer
 
 class PortPlacement:
   def __init__(self, parent):
-    parent.title = "Port Placement" # TODO make this more human readable by adding spaces
+    parent.title = "Port Placement"
     parent.categories = ["Work in Progress"]
     parent.dependencies = []
-    parent.contributors = ["Luis G. Torres (UNC)"] # replace with "Firstname Lastname (Org)"
+    parent.contributors = ["Luis G. Torres (UNC)"]
     parent.helpText = """
     This is an example of scripted loadable module bundled in an extension.
     """
@@ -250,6 +250,9 @@ class PortPlacementLogic:
     for portFid in self.fiducialToolMap:
       self.fiducialToolMap[portFid].model.SetAndObservePolyData(self.toolPolyData)
 
+  # note: currently using a simple-to-understand but *very*
+  # inefficient method of finding the two port lists' intersection and
+  # differences.
   def updatePorts(self, newPortAnnotationHierarchy):
     import numpy
     # turn the annotation hierarchy into a list of annotations
@@ -406,37 +409,126 @@ class PortPlacementTest(unittest.TestCase):
     self.test_PortPlacement1()
 
   def test_PortPlacement1(self):
-    """ Ideally you should have several levels of tests.  At the lowest level
-    tests sould exercise the functionality of the logic with different inputs
-    (both valid and invalid).  At higher levels your tests should emulate the
-    way the user would interact with your code and confirm that it still works
-    the way you intended.
-    One of the most important features of the tests is that it should alert other
-    developers when their changes will have an impact on the behavior of your
-    module.  For example, if a developer removes a feature that you depend on,
-    your test should break so they know that the feature is needed.
-    """
+    import numpy
+    import numpy.linalg
+    import random
 
-    self.delayDisplay("Starting the test")
+    # Grab the annotations GUI to help with testing fiducials
+    annotationsModule = slicer.util.getModule('Annotations')
+    annotationsLogic = annotationsModule.logic()
+
+    # Add our port hierarchy node at the top level
+    annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
+    annotationsLogic.AddHierarchy()
+    portsHierarchy = annotationsLogic.GetActiveHierarchyNode()
+
+    # Add some ports to our ports hierarchy
+    portFiducialNodes = []
+    numPorts = 4
+    for i in range(numPorts):
+      fiducialNode = slicer.vtkMRMLAnnotationFiducialNode()
+      fiducialNode.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
+      portFiducialNodes.append(slicer.mrmlScene.AddNode(fiducialNode))
+
+    # Add port tools using port placement logic
+    logic = PortPlacementLogic(2.0, 50.0)          
+    logic.updatePorts(portsHierarchy)
+    self.assertTrue(len(logic.fiducialToolMap) == numPorts)
+
+    # Verify that tools' transforms correspond to port list 
     #
-    # first, get some data
-    #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
+    # TODO: instead, this should comb the last 2n added objects to the
+    # scene to check against.
+    for portFid in logic.fiducialToolMap:
+      self.assertTrue(portFid in portFiducialNodes)
 
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        print('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        print('Loading %s...\n' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading\n')
+      center = [0,0,0,1]
+      toolPosition = [0,0,0,1]
+      logic.fiducialToolMap[portFid].model.TransformPointToWorld(center, toolPosition)
 
-    volumeNode = slicer.util.getNode(pattern="FA")
-    logic = PortPlacementLogic()
-    self.assertTrue( logic.hasImageData(volumeNode) )
-    self.delayDisplay('Test passed!')
+      # check that this tool's position matches that of the fiducial
+      fidCoords = [0,0,0]
+      portFid.GetFiducialCoordinates(fidCoords)
+      diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+
+    # Now add a fiducial
+    newFiducial = slicer.vtkMRMLAnnotationFiducialNode()
+    newFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
+    slicer.mrmlScene.AddNode(newFiducial)
+
+    # Remove the first fiducial
+    removedFiducial = portFiducialNodes[0]
+    annotationsLogic.RemoveAnnotationNode(removedFiducial)
+
+    # Change position of second fiducial
+    changedFiducial = portFiducialNodes[1]
+    changedFiducial.SetFiducialCoordinates(0., 0., 0.)
+        
+    # Update visualized port tools
+    logic.updatePorts(portsHierarchy)
+
+    # check for added fiducial
+    center = [0,0,0,1]
+    toolPosition = [0,0,0,1]
+    logic.fiducialToolMap[newFiducial].model.TransformPointToWorld(center, toolPosition)
+    fidCoords = [0,0,0]
+    newFiducial.GetFiducialCoordinates(fidCoords)
+    diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+    self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+
+    # check for removed fiducial
+    self.assertTrue(not removedFiducial in logic.fiducialToolMap)
+
+    # check for changed position of second fiducial
+    logic.fiducialToolMap[changedFiducial].model.TransformPointToWorld(center, toolPosition)
+    changedFiducial.GetFiducialCoordinates(fidCoords)
+    diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+    self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+
+    # retarget test
+
+    # cleanup
+    for fid in logic.fiducialToolMap:
+      annotationsLogic.RemoveAnnotationNode(fid)
+      tool = logic.fiducialToolMap[fid]
+      slicer.mrmlScene.RemoveNode(tool.model)
+      slicer.mrmlScene.RemoveNode(tool.transform)      
+    slicer.mrmlScene.RemoveNode(portsHierarchy)
+    
+
+  # def test_PortPlacement1(self):
+  #   """ Ideally you should have several levels of tests.  At the lowest level
+  #   tests sould exercise the functionality of the logic with different inputs
+  #   (both valid and invalid).  At higher levels your tests should emulate the
+  #   way the user would interact with your code and confirm that it still works
+  #   the way you intended.
+  #   One of the most important features of the tests is that it should alert other
+  #   developers when their changes will have an impact on the behavior of your
+  #   module.  For example, if a developer removes a feature that you depend on,
+  #   your test should break so they know that the feature is needed.
+  #   """
+
+  #   self.delayDisplay("Starting the test")
+  #   #
+  #   # first, get some data
+  #   #
+  #   import urllib
+  #   downloads = (
+  #       ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
+  #       )
+
+  #   for url,name,loader in downloads:
+  #     filePath = slicer.app.temporaryPath + '/' + name
+  #     if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+  #       print('Requesting download %s from %s...\n' % (name, url))
+  #       urllib.urlretrieve(url, filePath)
+  #     if loader:
+  #       print('Loading %s...\n' % (name,))
+  #       loader(filePath)
+  #   self.delayDisplay('Finished with download and loading\n')
+
+  #   volumeNode = slicer.util.getNode(pattern="FA")
+  #   logic = PortPlacementLogic()
+  #   self.assertTrue( logic.hasImageData(volumeNode) )
+  #   self.delayDisplay('Test passed!')
