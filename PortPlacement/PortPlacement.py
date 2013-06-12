@@ -13,11 +13,11 @@ class PortPlacement:
     parent.dependencies = []
     parent.contributors = ["Luis G. Torres (UNC)"]
     parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
+    This module allows the user to place and visualize simulated laparoscopic ports.
     """
     parent.acknowledgementText = """
     This file was originally developed by Luis G. Torres (UNC).
-""" # replace with organization, grant and thanks.
+"""
     self.parent = parent
 
     # Add this test to the SelfTest module's list for discovery when the module
@@ -265,7 +265,6 @@ class PortPlacementLogic:
     for portFid in [fid for fid in self.fiducialToolMap if not fid in newPortFidList]:
       tool = self.fiducialToolMap[portFid]
       slicer.mrmlScene.RemoveNode(tool.model)
-      #slicer.mrmlScene.RemoveNode(tool.modelDisplay)
       slicer.mrmlScene.RemoveNode(tool.transform)
       del self.fiducialToolMap[portFid]
 
@@ -273,10 +272,11 @@ class PortPlacementLogic:
     # the old port's data
     #
     # We take the following steps for each pre-existing port in the new list:
-    # 1. Get tool's current port position (from its transform node)
-    # 2. Get tool's new port position (from the fiducial's position)
-    # 3. Create a translation transform from the current position to the new one
-    # 4. Apply this transform to the tool's transform
+    # 1. Store the tool's current orientation
+    # 2. Get tool's new position from the fiducial's new position
+    # 3. "Reset" the tool's pose by inverting its transformation matrix
+    # 4. Translate tool to new position
+    # 5. Apply a rotation to regain its previous orientation
     for portFid in [fid for fid in self.fiducialToolMap if fid in newPortFidList]:
       tool = self.fiducialToolMap[portFid]
       mat = vtk.vtkMatrix4x4()
@@ -284,18 +284,15 @@ class PortPlacementLogic:
 
       t = vtk.vtkTransform()
       t.SetMatrix(mat)
-      oldPosition = [0,0,0]
-      t.GetPosition(oldPosition)
-      oldPosition = numpy.array(oldPosition)
-
+      orientation = [0,0,0,0]
+      t.GetOrientationWXYZ(orientation)
+      
       newPosition = [0,0,0]
       portFid.GetFiducialCoordinates(newPosition)
-      newPosition = numpy.array(newPosition)
 
-      positionChange = newPosition - oldPosition
-
-      t.Identity()
-      t.Translate(positionChange.tolist())
+      t.Inverse()
+      t.Translate(newPosition)
+      t.RotateWXYZ(orientation[0], orientation[1:])
       tool.transform.ApplyTransformMatrix(t.GetMatrix())
 
     # Now we add the new ports from the new port list
@@ -413,6 +410,8 @@ class PortPlacementTest(unittest.TestCase):
     import numpy.linalg
     import random
 
+    self.delayDisplay("Starting test...")
+
     # Grab the annotations GUI to help with testing fiducials
     annotationsModule = slicer.util.getModule('Annotations')
     annotationsLogic = annotationsModule.logic()
@@ -452,6 +451,31 @@ class PortPlacementTest(unittest.TestCase):
       diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
       self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
+    # retarget tools toward a random point
+    targetFiducial = slicer.vtkMRMLAnnotationFiducialNode()
+    targetFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
+    annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
+    slicer.mrmlScene.AddNode(targetFiducial)
+    annotationsLogic.SetActiveHierarchyNodeID(portsHierarchy.GetID())
+    logic.retargetTools(targetFiducial)
+
+    # check retargeting by verifying that tools' y-axes are oriented
+    # toward point
+    for portFid in logic.fiducialToolMap:
+      targetWorld = [0,0,0]
+      targetFiducial.GetFiducialCoordinates(targetWorld)
+      targetWorld = targetWorld + [1]
+      targetLocal = [0,0,0,1]
+      logic.fiducialToolMap[portFid].model.TransformPointFromWorld(targetWorld, targetLocal)
+
+      targetLocal = numpy.array(targetLocal)[0:3]
+      targetLocal = targetLocal / numpy.linalg.norm(targetLocal)
+
+      # target local should be the unit y-axis (e2)
+      yAxis = numpy.array([0.,1.,0.])
+      diff = yAxis - targetLocal
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+
     # Now add a fiducial
     newFiducial = slicer.vtkMRMLAnnotationFiducialNode()
     newFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
@@ -486,8 +510,6 @@ class PortPlacementTest(unittest.TestCase):
     diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
     self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-    # retarget test
-
     # cleanup
     for fid in logic.fiducialToolMap:
       annotationsLogic.RemoveAnnotationNode(fid)
@@ -495,40 +517,7 @@ class PortPlacementTest(unittest.TestCase):
       slicer.mrmlScene.RemoveNode(tool.model)
       slicer.mrmlScene.RemoveNode(tool.transform)      
     slicer.mrmlScene.RemoveNode(portsHierarchy)
+    slicer.mrmlScene.RemoveNode(targetFiducial)
+
+    self.delayDisplay("Test passed!")
     
-
-  # def test_PortPlacement1(self):
-  #   """ Ideally you should have several levels of tests.  At the lowest level
-  #   tests sould exercise the functionality of the logic with different inputs
-  #   (both valid and invalid).  At higher levels your tests should emulate the
-  #   way the user would interact with your code and confirm that it still works
-  #   the way you intended.
-  #   One of the most important features of the tests is that it should alert other
-  #   developers when their changes will have an impact on the behavior of your
-  #   module.  For example, if a developer removes a feature that you depend on,
-  #   your test should break so they know that the feature is needed.
-  #   """
-
-  #   self.delayDisplay("Starting the test")
-  #   #
-  #   # first, get some data
-  #   #
-  #   import urllib
-  #   downloads = (
-  #       ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-  #       )
-
-  #   for url,name,loader in downloads:
-  #     filePath = slicer.app.temporaryPath + '/' + name
-  #     if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-  #       print('Requesting download %s from %s...\n' % (name, url))
-  #       urllib.urlretrieve(url, filePath)
-  #     if loader:
-  #       print('Loading %s...\n' % (name,))
-  #       loader(filePath)
-  #   self.delayDisplay('Finished with download and loading\n')
-
-  #   volumeNode = slicer.util.getNode(pattern="FA")
-  #   logic = PortPlacementLogic()
-  #   self.assertTrue( logic.hasImageData(volumeNode) )
-  #   self.delayDisplay('Test passed!')
