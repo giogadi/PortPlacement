@@ -161,7 +161,7 @@ class PortPlacementWidget:
       self.logic.updatePorts(self.portListSelector.currentNode())
 
   def onRetargetButton(self):
-    if (self.targetSelector.currentNode()):
+    if self.targetSelector.currentNode():
       self.logic.retargetTools(self.targetSelector.currentNode())
 
   def onToolShapeChanged(self):
@@ -260,6 +260,8 @@ class PortPlacementLogic:
     newPortAnnotationHierarchy.GetChildrenDisplayableNodes(collection)
     newPortFidList = [collection.GetItemAsObject(i) for i in
                       xrange(collection.GetNumberOfItems())]
+    newPortFidList = [fid for fid in newPortFidList 
+                      if fid.GetClassName() == "vtkMRMLAnnotationFiducialNode"]
 
     # first remove ports which aren't in the new list
     for portFid in [fid for fid in self.fiducialToolMap if not fid in newPortFidList]:
@@ -329,6 +331,9 @@ class PortPlacementLogic:
       self.fiducialToolMap[portFid] = self.Tool(toolModel, modelDisplay, transformNode)
 
   def retargetTools(self, targetFid):
+    if targetFid.GetClassName() != "vtkMRMLAnnotationFiducialNode":
+      return
+
     import numpy
     import numpy.linalg
     import math
