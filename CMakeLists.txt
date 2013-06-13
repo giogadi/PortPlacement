@@ -15,7 +15,7 @@ find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
-add_subdirectory(ScriptedLoadableModuleTemplate)
+add_subdirectory(PortPlacement)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_CPACK})
