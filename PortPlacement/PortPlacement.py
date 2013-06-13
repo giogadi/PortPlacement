@@ -450,7 +450,8 @@ class PortPlacementTest(unittest.TestCase):
     for i in range(numPorts):
       fiducialNode = slicer.vtkMRMLAnnotationFiducialNode()
       fiducialNode.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
-      portFiducialNodes.append(slicer.mrmlScene.AddNode(fiducialNode))
+      fiducialNode.Initialize(slicer.mrmlScene)
+      portFiducialNodes.append(fiducialNode)
 
     # Add port tools using port placement logic
     logic = PortPlacementLogic(2.0, 50.0)          
@@ -478,7 +479,8 @@ class PortPlacementTest(unittest.TestCase):
     targetFiducial = slicer.vtkMRMLAnnotationFiducialNode()
     targetFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
     annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
-    slicer.mrmlScene.AddNode(targetFiducial)
+    # slicer.mrmlScene.AddNode(targetFiducial)
+    targetFiducial.Initialize(slicer.mrmlScene)
     annotationsLogic.SetActiveHierarchyNodeID(portsHierarchy.GetID())
     logic.retargetTools(targetFiducial)
 
@@ -502,7 +504,8 @@ class PortPlacementTest(unittest.TestCase):
     # Now add a fiducial
     newFiducial = slicer.vtkMRMLAnnotationFiducialNode()
     newFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
-    slicer.mrmlScene.AddNode(newFiducial)
+    newFiducial.Initialize(slicer.mrmlScene)
+    # slicer.mrmlScene.AddNode(newFiducial)
 
     # Remove the first fiducial
     removedFiducial = portFiducialNodes[0]
