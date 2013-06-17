@@ -248,7 +248,7 @@ class PortPlacementLogic:
     self.activeHierarchyObserverTag = None
 
     # Should we track this tag and remove it later?
-    slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeAboutToBeRemovedEvent, self.onFiducialRemoved)
+    slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeRemovedEvent, self.onNodeRemoved)
 
     # this is a horrible hack to avoid recursion in onFiducialRemoved
     self.flag = True
@@ -264,19 +264,27 @@ class PortPlacementLogic:
       self.fiducialToolMap[portFid].model.SetAndObservePolyData(self.toolPolyData)
 
   def setActivePortList(self, newPortAnnotationHierarchy):
+    # this probably doesn't happen, but let's make sure
+    if newPortAnnotationHierarchy == self.activeAnnotationHierarchy:
+      return
+
     # Set all ports to be invisible; we're going to only make the
     # ports in the new list visible
     for fiducialNode in self.fiducialToolMap:
       self.fiducialToolMap[fiducialNode].modelDisplay.VisibilityOff()
 
-    if not newPortAnnotationHierarchy:
-      self.activeAnnotationHierarchy = None
+    # If there was a previous active hiearchy, remove our observer to
+    # it. If our new active hierarchy isn't 'None', add an observer to
+    # it.
+    if self.activeHierarchyObserverTag:
+      self.activeAnnotationHierarchy.RemoveObserver(self.activeHierarchyObserverTag)
+    self.activeAnnotationHierarchy = newPortAnnotationHierarchy
+    if self.activeAnnotationHierarchy:
+      self.activeHierarchyObserverTag = \
+        self.activeAnnotationHierarchy.AddObserver('ModifiedEvent', self.onActiveHierarchyChanged)
+    else:
       self.activeHierarchyObserverTag = None
       return
-    else:
-      self.activeAnnotationHierarchy = newPortAnnotationHierarchy
-      self.activeHierarchyObserverTag = \
-          self.activeAnnotationHierarchy.AddObserver('ModifiedEvent', self.onActiveHierarchyChanged)
 
     newPortFiducialList = self.fromHierarchyToFiducialList(newPortAnnotationHierarchy)
 
@@ -316,7 +324,10 @@ class PortPlacementLogic:
   # function would get called AGAIN, and so-on for infinite
   # recursion. So, with the flags, we guarantee that the body of this
   # function only gets called for the fiducial node removal.
-  def onFiducialRemoved(self, scene, event):
+  #
+  # We also want to look for removal of the currently active node
+  # hierarchy.
+  def onNodeRemoved(self, scene, event):
     if self.flag:
       self.flag = False
       # This seems like a really wasteful solution, but for now it's
@@ -325,10 +336,14 @@ class PortPlacementLogic:
       for fiducial in self.fiducialToolMap.keys():
         if not slicer.mrmlScene.IsNodePresent(fiducial):
           self.removeTool(fiducial)
+
+      # Also check for currently active hierarchy
+      if not slicer.mrmlScene.IsNodePresent(self.activeAnnotationHierarchy):
+        print('waddap?')
+        self.setActivePortList(None)
       self.flag = True
 
   def onActiveHierarchyChanged(self, node, event):
-    print('waddap')
     for fiducialNode in self.fiducialToolMap:
       self.fiducialToolMap[fiducialNode].modelDisplay.VisibilityOff()
 
@@ -504,6 +519,10 @@ class PortPlacementLogic:
 
     # Iterate through port tool map and retarget their associated tools
     for portFid in activeFiducials:
+      # Don't try to target a tool toward itself
+      if portFid == targetFid: 
+        continue
+
       portLoc = [0,0,0]
       portFid.GetFiducialCoordinates(portLoc)
       portLoc = numpy.array(portLoc)
