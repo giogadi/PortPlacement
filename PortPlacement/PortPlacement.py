@@ -79,34 +79,6 @@ class PortPlacementWidget:
     self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
 
     #
-    # viz options area
-    #
-    vizOptionsCollapsibleButton = ctk.ctkCollapsibleButton()
-    vizOptionsCollapsibleButton.text = "Laparoscopic Tool Options"
-    self.layout.addWidget(vizOptionsCollapsibleButton)
-
-    # Layout within the dummy collapsible button
-    vizOptionsFormLayout = qt.QFormLayout(vizOptionsCollapsibleButton)
-
-    #
-    # radius spin box
-    # 
-    self.radiusSpinBox = qt.QDoubleSpinBox()
-    self.radiusSpinBox.setMinimum(0.0)
-    self.radiusSpinBox.setMaximum(10.0)
-    self.radiusSpinBox.setValue(2.0)
-    vizOptionsFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
-
-    #
-    # length spin box
-    #
-    self.lengthSpinBox = qt.QDoubleSpinBox()
-    self.lengthSpinBox.setMinimum(0.0)
-    self.lengthSpinBox.setMaximum(250.0)
-    self.lengthSpinBox.setValue(150.0)
-    vizOptionsFormLayout.addRow("Tool length: ", self.lengthSpinBox)
-
-    #
     # Ports Area
     #
     portsCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -146,16 +118,37 @@ class PortPlacementWidget:
     portsFormLayout.addRow(self.addPortButton)
 
     #
+    # port fiducial list selector
+    #
+    self.portListSelector = slicer.qMRMLNodeComboBox()
+    self.portListSelector.nodeTypes = ["vtkMRMLAnnotationHierarchyNode"]
+    self.portListSelector.addEnabled = False
+    self.portListSelector.removeEnabled = False
+    self.portListSelector.noneEnabled = True
+    self.portListSelector.setMRMLScene(slicer.mrmlScene)
+    self.portListSelector.setToolTip("Add surgical ports from a list of fiducials.")
+    portsFormLayout.addRow("List of Surgical Ports: ", self.portListSelector)
+
+    #
+    # Add Port List button
+    #
+    self.addPortListButton = qt.QPushButton("Add Ports from List")
+    self.addPortListButton.enabled = False
+    portsFormLayout.addRow(self.addPortListButton)
+
+    #
     # Port table
     #
     self.portsTable = qt.QTableView()
+    self.portsTableModel = qt.QStandardItemModel()
+    self.portsTable.setModel(self.portsTableModel)
     portsFormLayout.addRow(self.portsTable)
 
     #
     # Remove Port button
     #
     self.removePortButton = qt.QPushButton("Remove Selected Port")
-    self.removePortButton.enabled = True
+    self.removePortButton.enabled = False
     portsFormLayout.addRow(self.removePortButton)
 
     #
@@ -183,11 +176,51 @@ class PortPlacementWidget:
     #
     self.retargetButton = qt.QPushButton("Aim Tools at Target")
     self.retargetButton.toolTip = "Reset tool orientations to face target fiducial"
+    self.retargetButton.enabled = False
     targetFormLayout.addRow(self.retargetButton)
+
+    #
+    # Port Tool Display Options
+    #
+    toolsCollapsibleButton = ctk.ctkCollapsibleButton()
+    toolsCollapsibleButton.text = "Port Tool Display Options"
+    self.layout.addWidget(toolsCollapsibleButton)
+    toolsFormLayout = qt.QFormLayout(toolsCollapsibleButton)
+
+    #
+    # Transform sliders
+    #
+    self.transformSliders = slicer.qMRMLTransformSliders()
+    self.transformSliders.setTypeOfTransform(slicer.qMRMLTransformSliders.ROTATION)
+    self.transformSliders.setCoordinateReference(slicer.qMRMLTransformSliders.LOCAL)
+    self.transformSliders.setTitle('Tool Orientation')
+    self.transformSliders.setMinMaxVisible(False)
+    toolsFormLayout.addRow(self.transformSliders)
+
+    #
+    # radius spin box
+    # 
+    self.radiusSpinBox = qt.QDoubleSpinBox()
+    self.radiusSpinBox.setMinimum(0.0)
+    self.radiusSpinBox.setMaximum(10.0)
+    self.radiusSpinBox.setValue(2.0)
+    toolsFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
+
+    #
+    # length spin box
+    #
+    self.lengthSpinBox = qt.QDoubleSpinBox()
+    self.lengthSpinBox.setMinimum(0.0)
+    self.lengthSpinBox.setMaximum(250.0)
+    self.lengthSpinBox.setValue(150.0)
+    toolsFormLayout.addRow("Tool length: ", self.lengthSpinBox)
 
     # connections
     self.portFiducialSelector.connect('currentNodeChanged(bool)', self.onPortSelectorChanged)
+    self.portListSelector.connect('currentNodeChanged(bool)', self.onPortListSelectorChanged)
+    self.targetSelector.connect('currentNodeChanged(bool)', self.onTargetSelectorChanged)
     self.addPortButton.connect('clicked(bool)', self.onAddPortButton)
+    self.addPortListButton.connect('clicked(bool)', self.onAddPortListButton)
     self.removePortButton.connect('clicked(bool)', self.onRemovePortButton)
     self.retargetButton.connect('clicked(bool)', self.onRetargetButton)
     self.radiusSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
@@ -209,8 +242,22 @@ class PortPlacementWidget:
   def onPortSelectorChanged(self,valid):
     self.addPortButton.enabled = valid
 
+  def onPortListSelectorChanged(self, valid):
+    self.addPortListButton.enabled = valid
+
+  def onTargetSelectorChanged(self, valid):
+    self.retargetButton.enabled = valid
+
   def onAddPortButton(self):
-    (portFiducials, portVisibility) = self.logic.addTool(self.portFiducialSelector.currentNode())
+    (portFiducials, portVisibility) = self.logic.addTool(self.portFiducialSelector.currentNode(),
+                                                         self.radiusSpinBox.value,
+                                                         self.lengthSpinBox.value)
+    self.updateTable(portFiducials, portVisibility)
+
+  def onAddPortListButton(self):
+    (portFiducials, portVisibility) = self.logic.addTools(self.portListSelector.currentNode(),
+                                                          self.radiusSpinBox.value,
+                                                          self.lengthSpinBox.value)
     self.updateTable(portFiducials, portVisibility)
 
   def onRemovePortButton(self):
@@ -247,7 +294,16 @@ class PortPlacementWidget:
     self.logic.retargetTools(self.targetSelector.currentNode())
 
   def onToolShapeChanged(self):
-    self.logic.setToolShape(self.radiusSpinBox.value, self.lengthSpinBox.value)
+      toolIdx = self.portsTable.selectionModel().currentIndex().row()
+      if toolIdx >= self.portsTableModel.rowCount:
+        self.logic.setToolShapeByIndex(toolIdx, self.radiusSpinBox.value, self.lengthSpinBox.value)
+
+  def onCurrentToolChanged(self, newIndex, prevIndex):
+    self.removePortButton.enabled = True
+    self.transformSliders.setMRMLTransformNode(self.logic.getToolTransformByIndex(newIndex.row()))
+    self.transformSliders.reset()
+    self.radiusSpinBox.setValue(self.logic.getToolRadiusByIndex(newIndex.row()))
+    self.lengthSpinBox.setValue(self.logic.getToolLengthByIndex(newIndex.row()))
 
   def updateTable(self, portFiducials, portVisibility):
     self.itemFiducialMap = {}
@@ -270,6 +326,10 @@ class PortPlacementWidget:
     self.portsTable.setColumnWidth(0,15*len("Port Fiducial Name"))
 
     self.portsTableModel.itemChanged.connect(self.onTableItemChanged)
+    self.transformSliders.reset()
+    self.removePortButton.enabled = False
+    self.transformSliders.setMRMLTransformNode(None)
+    self.portsTable.selectionModel().currentRowChanged.connect(self.onCurrentToolChanged)
 
   def onReload(self,moduleName="PortPlacement"):
     """Generic reload method for any scripted module.
@@ -336,7 +396,8 @@ class PortPlacementLogic:
   """
 
   class Tool:
-    def __init__(self, model, modelDisplay, visible, transform, fidObserverTag):
+    def __init__(self, toolSrc, model, modelDisplay, visible, transform, fidObserverTag):
+      self.toolSrc = toolSrc
       self.model = model
       self.modelDisplay = modelDisplay
       self.visible = True
@@ -353,27 +414,31 @@ class PortPlacementLogic:
 
   def __init__(self, initToolRadius, initToolLength):
     self.fiducialToolMap = {}
-    self.toolSrc = vtk.vtkCylinderSource()
-    self.setToolShape(initToolRadius, initToolLength)
 
     # this is a horrible hack to avoid recursion in onFiducialRemoved
     self.flag = True
 
   # def __del__ (do this if we are seeing leaks or leftover observers)
 
-  def setToolShape(self, radius, length):
-    self.toolSrc.SetRadius(radius)
-    self.toolSrc.SetHeight(length)
-    self.toolPolyData = self.toolSrc.GetOutput()
-
-    for portFid in self.fiducialToolMap:
-      self.fiducialToolMap[portFid].model.SetAndObservePolyData(self.toolPolyData)
+  def setToolShapeByIndex(self, index, radius, length):
+    tool = self.fiducialToolMap[self.fiducialToolMap.keys()[index]]
+    tool.toolSrc.SetRadius(radius)
+    tool.toolSrc.SetHeight(length)
 
   def makeToolVisible(self, fiducial):
     self.fiducialToolMap[fiducial].makeVisible()
 
   def makeToolInvisible(self, fiducial):
     self.fiducialToolMap[fiducial].makeInvisible()
+
+  def getToolTransformByIndex(self, idx):
+    return self.fiducialToolMap[self.fiducialToolMap.keys()[idx]].transform
+
+  def getToolRadiusByIndex(self, idx):
+    return self.fiducialToolMap[self.fiducialToolMap.keys()[idx]].toolSrc.GetRadius()
+
+  def getToolLengthByIndex(self, idx):
+    return self.fiducialToolMap[self.fiducialToolMap.keys()[idx]].toolSrc.GetHeight()
       
   # Given a new position of a tool's fiducial node, we modify the
   # tool's transform such that the middle of the tool is on the new
@@ -430,13 +495,17 @@ class PortPlacementLogic:
     self.removeTool(keyToRemove)
     return self.getPortsAndVisibility()
 
-  def addTool(self, fiducialNode):
+  def addTool(self, fiducialNode, radius, length):
     # Don't add same port twice
     if not fiducialNode in self.fiducialToolMap:
       # create the tool model
       toolModel = slicer.vtkMRMLModelNode()
       toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
-      toolModel.SetAndObservePolyData(self.toolPolyData)
+      toolSrc = vtk.vtkCylinderSource()
+      toolSrc.SetRadius(radius)
+      toolSrc.SetHeight(length)
+      polyData = toolSrc.GetOutput()
+      toolModel.SetAndObservePolyData(polyData)
       slicer.mrmlScene.AddNode(toolModel)
 
       # and then our model display node
@@ -462,11 +531,18 @@ class PortPlacementLogic:
       tag = fiducialNode.AddObserver('ModifiedEvent', self.onFiducialModified)
 
       # add the model, model display, and transform to our fiducialToolMap
-      self.fiducialToolMap[fiducialNode] = self.Tool(toolModel, 
+      self.fiducialToolMap[fiducialNode] = self.Tool(toolSrc,
+                                                     toolModel,
                                                      modelDisplay,
                                                      True,
                                                      transformNode,
                                                      tag)
+    return self.getPortsAndVisibility()
+
+  def addTools(self, annotationHierarchy, radius, length):
+    fiducialList = self.fromHierarchyToFiducialList(annotationHierarchy)
+    for f in fiducialList:
+      self.addTool(f, radius, length)
     return self.getPortsAndVisibility()
 
   def getPortsAndVisibility(self):
