@@ -87,18 +87,6 @@ class PortPlacementWidget:
     portsFormLayout = qt.QFormLayout(portsCollapsibleButton)
 
     #
-    # port list selector
-    #
-    # self.portListSelector = slicer.qMRMLNodeComboBox()
-    # self.portListSelector.nodeTypes = ["vtkMRMLAnnotationHierarchyNode"]
-    # self.portListSelector.addEnabled = False
-    # self.portListSelector.removeEnabled = False
-    # self.portListSelector.noneEnabled = True
-    # self.portListSelector.setMRMLScene(slicer.mrmlScene)
-    # self.portListSelector.setToolTip("Pick the ports through which to insert the tools.")
-    # portsFormLayout.addRow("Fiducial List of Port Placements: ", self.portListSelector)
-
-    #
     # port fiducial selector
     #
     self.portFiducialSelector = slicer.qMRMLNodeComboBox()
@@ -191,10 +179,10 @@ class PortPlacementWidget:
     # Transform sliders
     #
     self.transformSliders = slicer.qMRMLTransformSliders()
-    self.transformSliders.setTypeOfTransform(slicer.qMRMLTransformSliders.ROTATION)
-    self.transformSliders.setCoordinateReference(slicer.qMRMLTransformSliders.LOCAL)
-    self.transformSliders.setTitle('Tool Orientation')
-    self.transformSliders.setMinMaxVisible(False)
+    self.transformSliders.TypeOfTransform = slicer.qMRMLTransformSliders.ROTATION
+    self.transformSliders.CoordinateReference = slicer.qMRMLTransformSliders.LOCAL
+    self.transformSliders.Title = 'Tool Orientation'
+    self.transformSliders.minMaxVisible = False
     toolsFormLayout.addRow(self.transformSliders)
 
     #
@@ -649,122 +637,113 @@ class PortPlacementTest(unittest.TestCase):
 
     self.delayDisplay("Starting test...")
 
+    m = slicer.util.mainWindow()
+    m.moduleSelector().selectModule('PortPlacement')
+    self.widget = slicer.modules.PortPlacementWidget
+
+    logic = self.widget.logic
+
     annotationsLogic = slicer.util.getModule('Annotations').logic()
     f = slicer.vtkMRMLAnnotationFiducialNode()
-    f.SetFiducialCoordinates(0,0,0)
+    f.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
     f.Initialize(slicer.mrmlScene)
 
-    logic = PortPlacementLogic(2.0, 50.0)
-    logic.addTool(f)
+    self.assertTrue(not self.widget.addPortButton.enabled)
+    self.widget.portFiducialSelector.setCurrentNode(f)
+    self.assertTrue(self.widget.addPortButton.enabled)
+    self.widget.onAddPortButton()
+    self.widget.onAddPortButton()
 
-    # # Grab the annotations GUI to help with testing fiducials
-    # annotationsLogic = slicer.util.getModule('Annotations').logic()
+    # check table
+    self.assertTrue(self.widget.portsTableModel.rowCount() == 1)
+    self.assertTrue(self.widget.portsTableModel.item(0).text() == f.GetName())
 
-    # # Add our port hierarchy node at the top level
-    # annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
-    # annotationsLogic.AddHierarchy()
-    # portsHierarchy = annotationsLogic.GetActiveHierarchyNode()
+    # check tool transform
+    center = [0,0,0,1]
+    toolPosition = [0,0,0,1]
+    logic.fiducialToolMap[f].model.TransformPointToWorld(center, toolPosition)
+    fidCoords = [0,0,0]
+    f.GetFiducialCoordinates(fidCoords)
+    diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+    self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-    # # Add some ports to our ports hierarchy
-    # portFiducialNodes = []
-    # numPorts = 4
-    # for i in range(numPorts):
-    #   fiducialNode = slicer.vtkMRMLAnnotationFiducialNode()
-    #   fiducialNode.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
-    #   fiducialNode.Initialize(slicer.mrmlScene)
-    #   portFiducialNodes.append(fiducialNode)
+    index = self.widget.portsTableModel.index(0,0)
+    self.assertTrue(not self.widget.removePortButton.enabled)
+    self.widget.portsTable.selectionModel().setCurrentIndex(index, qt.QItemSelectionModel.Current)
+    self.assertTrue(self.widget.removePortButton.enabled)
+    self.widget.onRemovePortButton()
+    self.assertTrue(self.widget.portsTableModel.rowCount() == 0)
+    self.assertTrue(len(logic.fiducialToolMap) == 0)
+    
+    # add a list of ports
+    annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
+    annotationsLogic.AddHierarchy()
+    portsHierarchy = annotationsLogic.GetActiveHierarchyNode()
 
-    # # Add port tools using port placement logic
-    # logic = PortPlacementLogic(2.0, 50.0)          
-    # logic.updatePorts(portsHierarchy)
-    # self.assertTrue(len(logic.fiducialToolMap) == numPorts)
+    # Add some ports to our ports hierarchy
+    portFiducialNodes = []
+    numPorts = 4
+    for i in range(numPorts):
+      fiducialNode = slicer.vtkMRMLAnnotationFiducialNode()
+      fiducialNode.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
+      fiducialNode.Initialize(slicer.mrmlScene)
+      portFiducialNodes.append(fiducialNode)
 
-    # # Verify that tools' transforms correspond to port list 
-    # #
-    # # TODO: instead, this should comb the last 2n added objects to the
-    # # scene to check against.
-    # for portFid in logic.fiducialToolMap:
-    #   self.assertTrue(portFid in portFiducialNodes)
+    self.assertTrue(not self.widget.addPortListButton.enabled)
+    self.widget.portListSelector.setCurrentNode(portsHierarchy)
+    self.assertTrue(self.widget.portListSelector.enabled)
+    self.widget.onAddPortListButton()
+    self.widget.onAddPortListButton()
 
-    #   center = [0,0,0,1]
-    #   toolPosition = [0,0,0,1]
-    #   logic.fiducialToolMap[portFid].model.TransformPointToWorld(center, toolPosition)
+    # check new fiducials
+    self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts)
+    keys = logic.fiducialToolMap.keys()
+    self.assertTrue(len(keys) == numPorts)
+    for (i,key) in enumerate(keys):
+      self.assertTrue(key in portFiducialNodes)
+      self.assertTrue(self.widget.portsTableModel.item(i).text() == key.GetName())
+      
+      # check tool transform
+      logic.fiducialToolMap[key].model.TransformPointToWorld(center, toolPosition)
+      key.GetFiducialCoordinates(fidCoords)
+      diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-    #   # check that this tool's position matches that of the fiducial
-    #   fidCoords = [0,0,0]
-    #   portFid.GetFiducialCoordinates(fidCoords)
-    #   diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-    #   self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+    # check retargeting
+    targetFiducial = slicer.vtkMRMLAnnotationFiducialNode()
+    targetFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
+    annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
+    targetFiducial.Initialize(slicer.mrmlScene)
+    annotationsLogic.SetActiveHierarchyNodeID(portsHierarchy.GetID())
 
-    # # retarget tools toward a random point
-    # targetFiducial = slicer.vtkMRMLAnnotationFiducialNode()
-    # targetFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
-    # annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
-    # # slicer.mrmlScene.AddNode(targetFiducial)
-    # targetFiducial.Initialize(slicer.mrmlScene)
-    # annotationsLogic.SetActiveHierarchyNodeID(portsHierarchy.GetID())
-    # logic.retargetTools(targetFiducial)
+    self.assertTrue(not self.widget.retargetButton.enabled)
+    self.widget.targetSelector.setCurrentNode(targetFiducial)
+    self.assertTrue(self.widget.retargetButton.enabled)
+    self.widget.onRetargetButton()
 
-    # # check retargeting by verifying that tools' y-axes are oriented
-    # # toward point
-    # for portFid in logic.fiducialToolMap:
-    #   targetWorld = [0,0,0]
-    #   targetFiducial.GetFiducialCoordinates(targetWorld)
-    #   targetWorld = targetWorld + [1]
-    #   targetLocal = [0,0,0,1]
-    #   logic.fiducialToolMap[portFid].model.TransformPointFromWorld(targetWorld, targetLocal)
+    # check retargeting by verifying that tools' positions are
+    # unchanged and that their y-axes are oriented toward point
+    for key in keys:
+      logic.fiducialToolMap[key].model.TransformPointToWorld(center, toolPosition)
+      key.GetFiducialCoordinates(fidCoords)
+      diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-    #   targetLocal = numpy.array(targetLocal)[0:3]
-    #   targetLocal = targetLocal / numpy.linalg.norm(targetLocal)
+      targetWorld = [0,0,0]
+      targetFiducial.GetFiducialCoordinates(targetWorld)
+      targetWorld = targetWorld + [1]
+      targetLocal = [0,0,0,1]
+      logic.fiducialToolMap[key].model.TransformPointFromWorld(targetWorld, targetLocal)
 
-    #   # target local should be the unit y-axis (e2)
-    #   yAxis = numpy.array([0.,1.,0.])
-    #   diff = yAxis - targetLocal
-    #   self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+      targetLocal = numpy.array(targetLocal)[0:3]
+      targetLocal = targetLocal / numpy.linalg.norm(targetLocal)
 
-    # # Now add a fiducial
-    # newFiducial = slicer.vtkMRMLAnnotationFiducialNode()
-    # newFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
-    # newFiducial.Initialize(slicer.mrmlScene)
-    # # slicer.mrmlScene.AddNode(newFiducial)
+      # target local should be the unit y-axis (e2)
+      yAxis = numpy.array([0.,1.,0.])
+      diff = yAxis - targetLocal
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-    # # Remove the first fiducial
-    # removedFiducial = portFiducialNodes[0]
-    # annotationsLogic.RemoveAnnotationNode(removedFiducial)
-
-    # # Change position of second fiducial
-    # changedFiducial = portFiducialNodes[1]
-    # changedFiducial.SetFiducialCoordinates(0., 0., 0.)
-        
-    # # Update visualized port tools
-    # logic.updatePorts(portsHierarchy)
-
-    # # check for added fiducial
-    # center = [0,0,0,1]
-    # toolPosition = [0,0,0,1]
-    # logic.fiducialToolMap[newFiducial].model.TransformPointToWorld(center, toolPosition)
-    # fidCoords = [0,0,0]
-    # newFiducial.GetFiducialCoordinates(fidCoords)
-    # diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-    # self.assertTrue(numpy.dot(diff,diff) < 1e-10)
-
-    # # check for removed fiducial
-    # self.assertTrue(not removedFiducial in logic.fiducialToolMap)
-
-    # # check for changed position of second fiducial
-    # logic.fiducialToolMap[changedFiducial].model.TransformPointToWorld(center, toolPosition)
-    # changedFiducial.GetFiducialCoordinates(fidCoords)
-    # diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-    # self.assertTrue(numpy.dot(diff,diff) < 1e-10)
-
-    # # cleanup
-    # for fid in logic.fiducialToolMap:
-    #   annotationsLogic.RemoveAnnotationNode(fid)
-    #   tool = logic.fiducialToolMap[fid]
-    #   slicer.mrmlScene.RemoveNode(tool.model)
-    #   slicer.mrmlScene.RemoveNode(tool.transform)      
-    # slicer.mrmlScene.RemoveNode(portsHierarchy)
-    # slicer.mrmlScene.RemoveNode(targetFiducial)
+    # dunno how to test sliders...
 
     self.delayDisplay("Test passed!")
     
