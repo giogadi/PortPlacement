@@ -96,7 +96,7 @@ class PortPlacementWidget:
     self.portFiducialSelector.noneEnabled = True
     self.portFiducialSelector.setMRMLScene(slicer.mrmlScene)
     self.portFiducialSelector.setToolTip("Pick a surgical port.")
-    portsFormLayout.addRow("Surgical Port: ", self.portFiducialSelector)
+    portsFormLayout.addRow("Surgical Port", self.portFiducialSelector)
 
     #
     # Add Port button
@@ -115,7 +115,7 @@ class PortPlacementWidget:
     self.portListSelector.noneEnabled = True
     self.portListSelector.setMRMLScene(slicer.mrmlScene)
     self.portListSelector.setToolTip("Add surgical ports from a list of fiducials.")
-    portsFormLayout.addRow("List of Surgical Ports: ", self.portListSelector)
+    portsFormLayout.addRow("List of Surgical Ports", self.portListSelector)
 
     #
     # Add Port List button
@@ -157,7 +157,7 @@ class PortPlacementWidget:
     self.targetSelector.noneEnabled = True
     self.targetSelector.setMRMLScene(slicer.mrmlScene)
     self.targetSelector.setToolTip("Pick the surgical target that the tools should face.")
-    targetFormLayout.addRow("Surgical Target Fiducial: ", self.targetSelector)
+    targetFormLayout.addRow("Surgical Target Fiducial", self.targetSelector)
 
     #
     # Retarget button
@@ -192,7 +192,7 @@ class PortPlacementWidget:
     self.radiusSpinBox.setMinimum(0.0)
     self.radiusSpinBox.setMaximum(10.0)
     self.radiusSpinBox.setValue(2.0)
-    toolsFormLayout.addRow("Tool radius: ", self.radiusSpinBox)
+    toolsFormLayout.addRow("Tool radius", self.radiusSpinBox)
 
     #
     # length spin box
@@ -201,7 +201,7 @@ class PortPlacementWidget:
     self.lengthSpinBox.setMinimum(0.0)
     self.lengthSpinBox.setMaximum(250.0)
     self.lengthSpinBox.setValue(150.0)
-    toolsFormLayout.addRow("Tool length: ", self.lengthSpinBox)
+    toolsFormLayout.addRow("Tool length", self.lengthSpinBox)
 
     # connections
     self.portFiducialSelector.connect('currentNodeChanged(bool)', self.onPortSelectorChanged)
@@ -283,7 +283,7 @@ class PortPlacementWidget:
 
   def onToolShapeChanged(self):
       toolIdx = self.portsTable.selectionModel().currentIndex().row()
-      if toolIdx >= self.portsTableModel.rowCount:
+      if toolIdx < self.portsTableModel.rowCount:
         self.logic.setToolShapeByIndex(toolIdx, self.radiusSpinBox.value, self.lengthSpinBox.value)
 
   def onCurrentToolChanged(self, newIndex, prevIndex):
@@ -390,7 +390,7 @@ class PortPlacementLogic:
       self.modelDisplay = modelDisplay
       self.visible = True
       self.transform = transform
-      self.fiducialObserverTag = fidObserverTag
+      self.fiducialObserverTag = fidObserverTag      
 
     def makeVisible(self):
       self.modelDisplay.VisibilityOn()      
@@ -399,6 +399,7 @@ class PortPlacementLogic:
     def makeInvisible(self):
       self.modelDisplay.VisibilityOff()
       self.visible = False
+
 
   def __init__(self, initToolRadius, initToolLength):
     self.fiducialToolMap = {}
@@ -412,6 +413,7 @@ class PortPlacementLogic:
     tool = self.fiducialToolMap[self.fiducialToolMap.keys()[index]]
     tool.toolSrc.SetRadius(radius)
     tool.toolSrc.SetHeight(length)
+    tool.toolSrc.Update()
 
   def makeToolVisible(self, fiducial):
     self.fiducialToolMap[fiducial].makeVisible()
@@ -484,8 +486,10 @@ class PortPlacementLogic:
     return self.getPortsAndVisibility()
 
   def addTool(self, fiducialNode, radius, length):
-    # Don't add same port twice
-    if not fiducialNode in self.fiducialToolMap:
+    # Make sure this annotation is indeed a fiducial marker, and don't
+    # add the same fiducial twice
+    if fiducialNode.GetClassName() == 'vtkMRMLAnnotationFiducialNode' and \
+          not fiducialNode in self.fiducialToolMap:
       # create the tool model
       toolModel = slicer.vtkMRMLModelNode()
       toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
