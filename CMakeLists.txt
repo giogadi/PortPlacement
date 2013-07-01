@@ -4,9 +4,9 @@ project(PortPlacement)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/PortPlacement")
-set(EXTENSION_CATEGORY "Examples")
-set(EXTENSION_CONTRIBUTORS "Jean-Christophe Fillion-Robin (Kitware), Steve Pieper (Isomics)")
-set(EXTENSION_DESCRIPTION "This is an example of extension bundling a scripted loadable module")
+set(EXTENSION_CATEGORY "Port Placement")
+set(EXTENSION_CONTRIBUTORS "Luis G. Torres (UNC)")
+set(EXTENSION_DESCRIPTION "Assists in the planning of surgical port placement in a laparoscopic procedure.")
 set(EXTENSION_ICONURL "http://viewvc.slicer.org/viewvc.cgi/Slicer4/trunk/Extensions/Testing/PortPlacement/PortPlacement.png?revision=21747&view=co")
 set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/e/e2/Slicer-r19441-PortPlacement-screenshot.png")
 
