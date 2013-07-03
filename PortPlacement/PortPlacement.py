@@ -289,7 +289,6 @@ class PortPlacementWidget:
   def onCurrentToolChanged(self, newIndex, prevIndex):
     self.removePortButton.enabled = True
     self.transformSliders.setMRMLTransformNode(self.logic.getToolTransformByIndex(newIndex.row()))
-    self.transformSliders.reset()
     self.radiusSpinBox.setValue(self.logic.getToolRadiusByIndex(newIndex.row()))
     self.lengthSpinBox.setValue(self.logic.getToolLengthByIndex(newIndex.row()))
 
