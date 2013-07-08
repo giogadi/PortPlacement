@@ -9,7 +9,7 @@ from __main__ import vtk, qt, ctk, slicer
 class PortPlacement:
   def __init__(self, parent):
     parent.title = "Port Placement"
-    parent.categories = ["Port Placement"]
+    parent.categories = ["IGT"]
     parent.dependencies = []
     parent.contributors = ["Luis G. Torres (UNC)"]
     parent.helpText = """
