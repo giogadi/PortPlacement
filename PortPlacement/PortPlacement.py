@@ -11,12 +11,14 @@ class PortPlacement:
     parent.title = "Port Placement"
     parent.categories = ["IGT"]
     parent.dependencies = []
-    parent.contributors = ["Luis G. Torres (UNC)"]
-    parent.helpText = """
-    This module allows the user to place and visualize simulated laparoscopic ports.
-    """
+    parent.contributors = ["Andinet Enquobahrie (Kitware), Luis G. Torres (UNC)"]
+    parent.helpText = string.Template("""
+    The PortPlacement module assists in the planning of surgical port placement in a laparoscopic procedure. Users can specify ports using fiducial markers and the module will automatically visualize simulated surgical tools at the port locations. Users can freely pivot the simulated surgical tools about the ports, as well as automatically orient all surgical tools toward a specified surgical target. Simulated tools are represented by cylinders whose lengths and radii can be varied from tool to tool.
+
+    See the <a href=\"$a/Documentation/Nightly/Extensions/PortPlacement\">module documentation</a> for more details.
+    """).substitute({ 'a':parent.slicerWikiUrl})
     parent.acknowledgementText = """
-    This file was originally developed by Luis G. Torres (UNC).
+    This work was supported by NSF GRFP Grant No. DGE-1144081 and partially supported by NIH/NIBIB Grant No. 1R43EB014074-01. Anatomical atlas volume in module and extension icons courtesy of the Surgical Planning Laboratory (<a href=\"http://www.na-mic.org/publications/item/view/1266\">Link</a>)
 """
     self.parent = parent
 
