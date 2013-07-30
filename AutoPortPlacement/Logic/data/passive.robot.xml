@@ -1,0 +1,93 @@
+<Robot name="DaVinciPassive">
+  <KinBody name="DaVinciPassiveArm">
+    <!-- TODO specify joint limits and "circularity" -->
+    <Body name="link0" type="dynamic">
+      <Translation>0 0 0</Translation>
+    </Body>
+
+    <Body name="link1" type="dynamic">
+      <offsetfrom>link0</offsetfrom>
+      <Translation>0 0 0</Translation>
+    </Body>
+
+    <Joint name="d1" type="slider">
+      <Body>link0</Body>
+      <Body>link1</Body>
+      <offsetfrom>link0</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="link2" type="dynamic">
+      <offsetfrom>link1</offsetfrom>
+      <Translation>0 0 0</Translation>
+    </Body>
+
+    <Joint name="a2" type="hinge">
+      <Body>link1</Body>
+      <Body>link2</Body>
+      <offsetfrom>link1</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="link3" type="dynamic">
+      <offsetfrom>link2</offsetfrom>
+      <Translation>0 0.3 0.15</Translation> <!-- (0, pl2, ph2) -->    
+    </Body>
+
+    <Joint name="a3" type="hinge">
+      <Body>link2</Body>
+      <Body>link3</Body>
+      <offsetfrom>link3</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="link4" type="dynamic">
+      <offsetfrom>link3</offsetfrom>
+      <Translation>0 0.3 -0.07</Translation> <!-- (0, pl3, -ph3) -->    
+    </Body>
+
+    <Joint name="a4" type="hinge">
+      <Body>link3</Body>
+      <Body>link4</Body>
+      <offsetfrom>link4</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="link5" type="dynamic">
+      <offsetfrom>link4</offsetfrom>
+      <Translation>0 0.07 -0.07</Translation> <!-- (0, pl4, -ph4) -->
+      <rotationaxis>1 0 0 -90</rotationaxis>
+    </Body>
+
+    <Joint name="a5" type="hinge">
+      <Body>link4</Body>
+      <Body>link5</Body>
+      <offsetfrom>link5</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="link6" type="dynamic">
+      <offsetfrom>link5</offsetfrom>
+      <Translation>0 0 0.3</Translation> <!-- (0, 0, pl5) -->
+      <rotationaxis>1 0 0 90</rotationaxis>
+    </Body>
+
+    <Joint name="a6" type="hinge">
+      <Body>link5</Body>
+      <Body>link6</Body>
+      <offsetfrom>link6</offsetfrom>
+      <axis>0 0 1</axis>
+    </Joint>
+
+    <Body name="RCM" type="dynamic">
+      <offsetfrom>link6</offsetfrom>
+      <Translation>0 0.32 0.15</Translation> <!-- rcmOffset -->
+      <rotationmat>0 1 0 0 0 1 1 0 0</rotationmat> <!-- 120deg about (-1/root(3),-1/root(3),-1/root(3)) -->
+    </Body>
+  </KinBody>
+
+  <manipulator name="arm">
+    <base>link0</base>
+    <effector>RCM</effector>
+  </manipulator>
+</Robot>
