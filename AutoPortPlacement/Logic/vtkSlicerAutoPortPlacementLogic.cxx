@@ -40,7 +40,7 @@ vtkStandardNewMacro(vtkSlicerAutoPortPlacementLogic);
 //----------------------------------------------------------------------------
 vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic()
 {
-  this->Kinematics = new DavinciKinematics("/home/luis/code/PortPlacement/AutoPortPlacement/Logic/data/davinci-parameters.xml"); // obviously debug
+  this->Kinematics = new DavinciKinematics();
 
   this->CylinderSource = vtkSmartPointer<vtkCylinderSource>::New();
   this->CylinderSource->SetHeight(1.0);
@@ -64,18 +64,26 @@ void vtkSlicerAutoPortPlacementLogic::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 //---------------------------------------------------------------------------
-void vtkSlicerAutoPortPlacementLogic::AddDavinciPrimitives()
-{
-  std::vector<double> q(6,0.0);
-  q[0] = 0.3;
-  q[1] = 1.5;
-  q[2] = -0.7;
-  q[3] = 0.7;
-  q[4] = 1.5;
+void vtkSlicerAutoPortPlacementLogic::AddDavinciPrimitives(const vtkMatrix4x4& vtkBaseFrame,
+                                                           const double* q_passive,
+                                                           const double* q_active)
+{  
+  Eigen::Matrix4d baseFrame;
+  for (unsigned i = 0; i < 4; ++i)
+    for (unsigned j = 0; j < 4; ++j)
+      baseFrame(i,j) = vtkBaseFrame.GetElement(i,j);
+
+  std::vector<double> q_passive_v(&(q_passive[0]), &(q_passive[6]));
+  std::vector<double> q_active_v(&(q_active[0]), &(q_active[6]));
+
   std::vector<Collisions::Cylisphere> cylispheres;
   Collisions::Sphere sphere;
-  this->Kinematics->getPassivePrimitives(Eigen::Matrix4d::Identity(),
-                                         q, &cylispheres, &sphere);
+  this->Kinematics->getPassivePrimitives(baseFrame, q_passive_v,
+                                         &cylispheres, &sphere);
+
+  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrame, q_passive_v),
+                                        q_active_v,
+                                        &cylispheres);
 
   for (std::size_t i = 0; i < cylispheres.size(); ++i)
     {

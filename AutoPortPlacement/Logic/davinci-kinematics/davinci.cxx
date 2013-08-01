@@ -268,8 +268,6 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
                                             const std::vector<double>& q,
                                             std::vector<Collisions::Cylisphere>* cylispheres) const
 {
-  cylispheres->clear();
-
   double c1 = cos(q[0]);
   double c2 = cos(q[1]);
   double s1 = sin(q[0]);
@@ -291,12 +289,9 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
   c_h.r = params_.eRadius2_;
 
   // vertical cylisphere 
-  //
-  // TODO: check with azimian that l1 is indeed
-  // the correct term here
   Collisions::Cylisphere c_v;
   c_v.p1 = c_h.p1;
-  p.head<3>() = c_h.p1;
+  p(2) += params_.el2_; // undo z offset from p2h
   p(0) += params_.el1_*c2*c1;
   p(1) += params_.el1_*c2*s1;
   p(2) += -params_.el1_*s2;
@@ -372,7 +367,6 @@ void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   jointPoses->push_back(T);
 }
 
-// \TODO Ensure visually that this is lined up with passiveFK
 void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q,
                                              std::vector<Collisions::Cylisphere>* cylispheres,

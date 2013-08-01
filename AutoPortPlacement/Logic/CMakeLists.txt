@@ -34,6 +34,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(collisions)
 add_subdirectory(davinci-kinematics)
 add_subdirectory(tests)
+add_subdirectory(optim)
 
 #-----------------------------------------------------------------------------
 SlicerMacroBuildModuleLogic(

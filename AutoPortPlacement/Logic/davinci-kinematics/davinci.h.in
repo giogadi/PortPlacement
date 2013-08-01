@@ -38,7 +38,7 @@ struct DavinciParameters
 class DavinciKinematics
 {
 public:
-  DavinciKinematics(const std::string& inputFilename);
+  DavinciKinematics(const std::string& inputFilename=std::string("@DAVINCI_PARAMS_FILE@"));
 
   // Get frame at the end of the wrist (base of the gripper) given the
   // pose of the RCM and configuration q.
@@ -75,6 +75,7 @@ public:
                                               const std::vector<double>& q,
                                               double stepSize) const;
 
+  // \TODO allow specification of tolerance for error in IK solution
   bool passiveIK(const Eigen::Matrix4d& baseFrame,
                  const Eigen::Vector3d& worldPosition,
                  std::vector<double>* q,

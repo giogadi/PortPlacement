@@ -14,9 +14,14 @@ add_executable(min-distance-test
   min-distance-test.cxx)
 target_link_libraries(min-distance-test collisions)
 
+add_executable(passive-lr-optim-test
+  passive-lr-optim-test.cxx)
+target_link_libraries(passive-lr-optim-test optim)
+
 set(DAVINCI_PARAMS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/data/davinci-parameters.xml")
 
 add_test(daVinci_load_params_test da-vinci-params-load-test ${DAVINCI_PARAMS_FILE})
 add_test(daVinci_jacobian_test jacobian-test ${DAVINCI_PARAMS_FILE})
 add_test(daVinci_passive_ik_test da-vinci-passive-ik-test ${DAVINCI_PARAMS_FILE})
 add_test(collisions_distance_test min-distance-test)
+add_test(passive_lr_optim_test passive-lr-optim-test)

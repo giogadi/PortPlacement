@@ -25,6 +25,9 @@
 // Logic includes
 #include "vtkSlicerAutoPortPlacementLogic.h"
 
+// VTK includes
+#include <vtkTransform.h>
+
 //-----------------------------------------------------------------------------
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class qSlicerAutoPortPlacementModuleWidgetPrivate: public Ui_qSlicerAutoPortPlacementModuleWidget
@@ -75,6 +78,19 @@ void qSlicerAutoPortPlacementModuleWidget::onPushButtonClicked()
     vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
   if (portLogic)
     {
-    portLogic->AddDavinciPrimitives();
+    vtkSmartPointer<vtkTransform> T1 = vtkSmartPointer<vtkTransform>::New();
+    T1->Translate(-0.5, 0.0, 0.0);
+    T1->RotateZ(90.0);
+
+    vtkSmartPointer<vtkTransform> T2 = vtkSmartPointer<vtkTransform>::New();
+    T2->Translate(0.5, 0.0, 0.0);
+    T2->RotateZ(-90.0);
+
+    double qpL[] = {0.454813, -1.34757, -0.124238, -1.24044, -0.659561, -0.632044};
+    double qpR[] = {0.803397, 0.781243, 1.10959, 0.997729, 1.66653, -0.315385};
+    double qa[] = {0, 0, 0, 0, 0, 0};
+
+    portLogic->AddDavinciPrimitives(*T1->GetMatrix(), qpL, qa);
+    portLogic->AddDavinciPrimitives(*T2->GetMatrix(), qpR, qa);
     }
 }

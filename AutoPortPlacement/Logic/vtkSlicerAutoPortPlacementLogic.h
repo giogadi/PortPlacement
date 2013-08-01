@@ -32,6 +32,7 @@
 // VTK includes
 #include <vtkCylinderSource.h>
 #include <vtkSphereSource.h>
+#include <vtkMatrix4x4.h>
 
 // STD includes
 #include <cstdlib>
@@ -52,7 +53,9 @@ public:
   vtkTypeMacro(vtkSlicerAutoPortPlacementLogic, vtkSlicerModuleLogic);
   void PrintSelf(ostream& os, vtkIndent indent);
 
-  void AddDavinciPrimitives();
+  void AddDavinciPrimitives(const vtkMatrix4x4& baseFrame,
+                            const double* q_passive,
+                            const double* q_active);
 
 protected:
   vtkSlicerAutoPortPlacementLogic();
