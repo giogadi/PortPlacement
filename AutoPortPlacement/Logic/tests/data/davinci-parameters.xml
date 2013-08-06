@@ -1,24 +1,25 @@
 <davinci_parameters>
   <intracorporeal>
-    <wrist_length>0.01</wrist_length>
+    <wrist_length>0.008</wrist_length>
     <gripper_length>0.01</gripper_length>
   </intracorporeal>
   <extracorporeal>
-    <!-- dimensions of active mechanism (using terminology of Azimian's thesis) -->
-    <L>0.15</L>
-    <l>0.01</l>
-    <l1>0.3</l1>
-    <l2>0.32</l2>
-    <!-- radius of cylisphere representing instrument holder -->
-    <radius1>0.05</radius1>
-    <!-- radius of cylisphere representing double parallelogram -->
-    <radius2>0.05</radius2>
+    <!-- dimensions of active mechanism -->
+    <l1>0.126</l1> <!-- distance between RCM and first point (p1 in thesis) -->
+    <l2>0.04</l2> <!-- offset between instrument and holder in z direction -->
+    <l3>0.445</l3> <!-- length of instrument holder -->
+    <l4>0.043</l4> <!-- offset between holder's control point and parallelogram point -->
+    <l5>0.52</l5> <!-- length of parallelogram -->
+    <!-- radius of cylisphere representing instrument -->
+    <r1>0.005</r1>
+    <!-- radius of cylisphere representing instrument holder and parallelogram -->
+    <r2>0.05</r2>
   </extracorporeal>
   <passive>
-    <l2>0.3</l2>
-    <h2>0.15</h2>
-    <l3>0.3</l3>
-    <h3>0.07</h3>
+    <l2>0.419</l2>
+    <h2>0.145</h2>
+    <l3>0.425</l3>
+    <h3>0.129</h3>
     <l4>0.07</l4>
     <h4>0.07</h4>
     <l5>0.3</l5>

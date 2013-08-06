@@ -12,29 +12,29 @@
 // parameters, and those prefixed with 'p' are passive arm parameters.
 struct DavinciParameters
 { 
-  double wristLength_;
-  double gripperLength_;
+  double wristLength;
+  double gripperLength;
 
-  // dimensions of active mechanism (using terminology of Azimian's
-  // thesis)
-  double eL_;
-  double el1_;
-  double el2_;
-  double eAlpha_;
+  // dimensions of active mechanism
+  double el1; // distance between RCM and first point
+  double el2; // offset between instrument and holder in z direction
+  double el3; // length of instrument holder
+  double el4; // offset between holder's control point and parallelogram point
+  double el5; // length of parallelogram
 
   // radii for collision primitives
-  double eRadius1_; // radius of primitive nearest the port
-  double eRadius2_; // radius of primitive with double parallelogram
+  double er1; // radius of cylisphere representing instrument
+  double er2; // radius of cylisphere representing instrument holder and parallelogram
 
-  double pl2_;
-  double ph2_;
-  double pl3_;
-  double ph3_;
-  double pl4_;
-  double ph4_;
-  double pl5_;
-  Eigen::Vector3d pRCMOffset_;
-  double pLinkRadius_;  
+  double pl2;
+  double ph2;
+  double pl3;
+  double ph3;
+  double pl4;
+  double ph4;
+  double pl5;
+  Eigen::Vector3d pRCMOffset;
+  double pLinkRadius;  
 };
 
 class DavinciKinematics

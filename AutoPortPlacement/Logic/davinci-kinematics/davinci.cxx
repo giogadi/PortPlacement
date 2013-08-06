@@ -77,33 +77,33 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
     }
   
   pugi::xml_node intra = doc.child("davinci_parameters").child("intracorporeal");
-  params_.wristLength_ = intra.child("wrist_length").text().as_double();
-  params_.gripperLength_ = intra.child("gripper_length").text().as_double();
+  params_.wristLength = intra.child("wrist_length").text().as_double();
+  params_.gripperLength = intra.child("gripper_length").text().as_double();
 
   pugi::xml_node extra = doc.child("davinci_parameters").child("extracorporeal");
-  params_.eL_ = extra.child("L").text().as_double();
-  params_.el1_ = extra.child("l1").text().as_double();
-  params_.el2_ = extra.child("l2").text().as_double();
-  double l = extra.child("l").text().as_double();
-  params_.eAlpha_ = asin(l / params_.eL_);
-  params_.eRadius1_ = extra.child("radius1").text().as_double();
-  params_.eRadius2_ = extra.child("radius2").text().as_double();
+  params_.el1 = extra.child("l1").text().as_double();
+  params_.el2 = extra.child("l2").text().as_double();
+  params_.el3 = extra.child("l3").text().as_double();
+  params_.el4 = extra.child("l4").text().as_double();
+  params_.el5 = extra.child("l5").text().as_double();
+  params_.er1 = extra.child("r1").text().as_double();
+  params_.er2 = extra.child("r2").text().as_double();
 
   pugi::xml_node passive = doc.child("davinci_parameters").child("passive");
-  params_.pl2_ = passive.child("l2").text().as_double();
-  params_.ph2_ = passive.child("h2").text().as_double();
-  params_.pl3_ = passive.child("l3").text().as_double();
-  params_.ph3_ = passive.child("h3").text().as_double();
-  params_.pl4_ = passive.child("l4").text().as_double();
-  params_.ph4_ = passive.child("h4").text().as_double();
-  params_.pl5_ = passive.child("l5").text().as_double();
+  params_.pl2 = passive.child("l2").text().as_double();
+  params_.ph2 = passive.child("h2").text().as_double();
+  params_.pl3 = passive.child("l3").text().as_double();
+  params_.ph3 = passive.child("h3").text().as_double();
+  params_.pl4 = passive.child("l4").text().as_double();
+  params_.ph4 = passive.child("h4").text().as_double();
+  params_.pl5 = passive.child("l5").text().as_double();
   
   pugi::xml_node rcmOffset = passive.child("rcm_offset");
-  params_.pRCMOffset_(0) = rcmOffset.child("x").text().as_double();
-  params_.pRCMOffset_(1) = rcmOffset.child("y").text().as_double();
-  params_.pRCMOffset_(2) = rcmOffset.child("z").text().as_double();
+  params_.pRCMOffset(0) = rcmOffset.child("x").text().as_double();
+  params_.pRCMOffset(1) = rcmOffset.child("y").text().as_double();
+  params_.pRCMOffset(2) = rcmOffset.child("z").text().as_double();
 
-  params_.pLinkRadius_ = passive.child("link_radius").text().as_double();
+  params_.pLinkRadius = passive.child("link_radius").text().as_double();
 }
 
 // \TODO reduce number of intermediate matrices for optimization
@@ -155,7 +155,7 @@ Eigen::Matrix4d DavinciKinematics::intraFK(const Eigen::Matrix4d& portFrame,
   T_5_6.block<3,1>(0,0) = e1;
   T_5_6.block<3,1>(0,1) = -e3;
   T_5_6.block<3,1>(0,2) = e2;
-  T_5_6(0,3) = params_.wristLength_;
+  T_5_6(0,3) = params_.wristLength;
   T_5_6(3,3) = 1.0;
   T_5_6 *= zRotation(q[5]);
   T = T*T_5_6;
@@ -202,10 +202,10 @@ void DavinciKinematics::intraIK(const Eigen::Matrix4d& portFrame,
   (*q)[5] = atan2(v, -u);
   double c5 = cos((*q)[5]);
   double s5 = sin((*q)[5]);
-  (*q)[4] = atan2(w, -params_.wristLength_ - u*c5 + v*s5);
+  (*q)[4] = atan2(w, -params_.wristLength - u*c5 + v*s5);
   double c4 = cos((*q)[4]);
   double s4 = sin((*q)[4]);
-  (*q)[3] = (-params_.wristLength_ - u*c5 + v*s5)*c4 + w*s4;
+  (*q)[3] = (-params_.wristLength - u*c5 + v*s5)*c4 + w*s4;
   
   Eigen::Matrix3d m;
   m(0,0) = c5*s4;  m(0,1) = -s5;  m(0,2) = c4*c5;
@@ -299,34 +299,43 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
   double c2 = cos(q[1]);
   double s1 = sin(q[0]);
   double s2 = sin(q[1]);
-  double c2a = cos(q[1] + params_.eAlpha_);
-  double s2a = sin(q[1] + params_.eAlpha_);
 
-  // horizontal cylisphere
+  Eigen::Vector3d p;
+  p << -c1*c2, -c2*s1, s2;
+
+  // instrument cylisphere
+  Collisions::Cylisphere c_i;
+  c_i.p1.setZero();
+  c_i.p2 = -params_.el1*p;
+  c_i.r = params_.er1;
+
+  // instrument holder cylisphere
   Collisions::Cylisphere c_h;
-  Eigen::Vector4d p;
-  p(0) = params_.eL_*c2a*c1;
-  p(1) = params_.eL_*c2a*s1;
-  p(2) = -params_.eL_*s2a;
-  p(3) = 1.0;
-  c_h.p1.noalias() = (portFrame*p).head<3>();
+  Eigen::Vector3d p2;
+  p2 << c1*s2, s1*s2, c2;  
+  c_h.p1 = c_i.p2 - params_.el2*p2;
+  c_h.p2 = c_h.p1 - params_.el3*p;
+  c_h.r = params_.er2;
+
+  // parallelogram cylisphere
+  Collisions::Cylisphere c_p;
+  c_p.p1 = c_h.p1 - params_.el4*p;
+  c_p.p2 = c_p.p1;
+  c_p.p2(2) -= params_.el5;
+  c_p.r = params_.er2;
   
-  p(2) -= params_.el2_;
-  c_h.p2.noalias() = (portFrame*p).head<3>();
-  c_h.r = params_.eRadius2_;
-
-  // vertical cylisphere 
-  Collisions::Cylisphere c_v;
-  c_v.p1 = c_h.p1;
-  p(2) += params_.el2_; // undo z offset from p2h
-  p(0) += params_.el1_*c2*c1;
-  p(1) += params_.el1_*c2*s1;
-  p(2) += -params_.el1_*s2;
-  c_v.p2.noalias() = (portFrame*p).head<3>();
-  c_v.r = params_.eRadius1_;
-
+  cylispheres->push_back(c_i); 
   cylispheres->push_back(c_h);
-  cylispheres->push_back(c_v);
+  cylispheres->push_back(c_p);
+
+  // transform cylispheres according to port frame
+  Eigen::Matrix3d R = portFrame.topLeftCorner<3,3>();
+  Eigen::Vector3d T = portFrame.topRightCorner<3,1>();
+  for (std::size_t i = cylispheres->size()-3; i < cylispheres->size(); ++i)
+    {
+    (*cylispheres)[i].p1 = R*(*cylispheres)[i].p1 + T;
+    (*cylispheres)[i].p2 = R*(*cylispheres)[i].p2 + T;
+    }
 }
 
 void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
@@ -354,15 +363,15 @@ void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   jointPoses->push_back(T);
 
   Eigen::Matrix4d T_2_3 = Eigen::Matrix4d::Identity();
-  T_2_3(1,3) = params_.pl2_;
-  T_2_3(2,3) = params_.ph2_;
+  T_2_3(1,3) = params_.pl2;
+  T_2_3(2,3) = params_.ph2;
   T_2_3 *= zRotation(q[2]);
   T = T*T_2_3;
   jointPoses->push_back(T);
 
   Eigen::Matrix4d T_3_4 = Eigen::Matrix4d::Identity();
-  T_3_4(1,3) = params_.pl3_;
-  T_3_4(2,3) = -params_.ph3_;
+  T_3_4(1,3) = params_.pl3;
+  T_3_4(2,3) = -params_.ph3;
   T_3_4 *= zRotation(q[3]);
   T = T*T_3_4;
   jointPoses->push_back(T);
@@ -371,8 +380,8 @@ void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   T_4_5.col(0) = e1;
   T_4_5.col(1) = -e3;
   T_4_5.col(2) = e2;
-  T_4_5(1,3) = params_.pl4_;
-  T_4_5(2,3) = -params_.ph4_;
+  T_4_5(1,3) = params_.pl4;
+  T_4_5(2,3) = -params_.ph4;
   T_4_5 *= zRotation(q[4]);
   T = T*T_4_5;
   jointPoses->push_back(T);
@@ -381,7 +390,7 @@ void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   T_5_6.col(0) = e1;
   T_5_6.col(1) = e3;
   T_5_6.col(2) = -e2;
-  T_5_6(2,3) = params_.pl5_;
+  T_5_6(2,3) = params_.pl5;
   T_5_6 *= zRotation(q[5]);
   T = T*T_5_6;
   jointPoses->push_back(T);
@@ -390,7 +399,7 @@ void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   T_6_RCM.col(0) = e3;
   T_6_RCM.col(1) = e1;
   T_6_RCM.col(2) = e2;
-  T_6_RCM.topRightCorner<3,1>() = params_.pRCMOffset_;
+  T_6_RCM.topRightCorner<3,1>() = params_.pRCMOffset;
   T = T*T_6_RCM;
   jointPoses->push_back(T);
 }
@@ -404,13 +413,13 @@ void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
   this->passiveFK(baseFrame, q, &poses);
 
   Collisions::Cylisphere c;
-  c.r = params_.pLinkRadius_;
+  c.r = params_.pLinkRadius;
   c.p1 = poses[0].topRightCorner<3,1>();
   c.p2 = poses[1].topRightCorner<3,1>();
   cylispheres->push_back(c);
 
   c.p1 = c.p2;
-  c.p2.noalias() = c.p1 + poses[1].block<3,1>(0,1)*params_.pl2_;
+  c.p2.noalias() = c.p1 + poses[1].block<3,1>(0,1)*params_.pl2;
   cylispheres->push_back(c);
 
   c.p1 = c.p2;
@@ -418,7 +427,7 @@ void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
   cylispheres->push_back(c);
 
   c.p1 = poses[2].topRightCorner<3,1>();
-  c.p2.noalias() = c.p1 + poses[2].block<3,1>(0,1)*params_.pl3_;
+  c.p2.noalias() = c.p1 + poses[2].block<3,1>(0,1)*params_.pl3;
   cylispheres->push_back(c);
 
   // skip next link because it's small
@@ -429,8 +438,10 @@ void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
 
   // add the sphere at L units up in z-direction from the prior
   // cylisphere's p2
-  sphere->r = params_.eL_;
-  sphere->p.noalias() = poses[5].topRightCorner<3,1>() + poses[5].block<3,1>(0,2)*params_.eL_;
+  // sphere->r = params_.eL;
+  // sphere->p.noalias() = poses[5].topRightCorner<3,1>() + poses[5].block<3,1>(0,2)*params_.eL;
+  sphere->r = 0.14;
+  sphere->p.noalias() = poses[5].topRightCorner<3,1>() + 0.14*poses[5].block<3,1>(0,2);
 }
 
 DavinciParameters DavinciKinematics::getParams() const
