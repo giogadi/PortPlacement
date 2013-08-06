@@ -175,10 +175,38 @@ Eigen::Matrix4d DavinciKinematics::intraFK(const Eigen::Matrix4d& portFrame,
 Eigen::Matrix4d DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q) const
 {
-  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d> > poses;
-  this->passiveFK(baseFrame, q, &poses);
+  double c2 = cos(q[1]);
+  double s2 = sin(q[1]);
+  double c23 = cos(q[1] + q[2]);
+  double s23 = sin(q[1] + q[2]);
+  double c234 = cos(q[1] + q[2] + q[3]);
+  double s234 = sin(q[1] + q[2] + q[3]);
+  double c5m6 = cos(q[4] - q[5]);
+  double s5m6 = sin(q[4] - q[5]);
+  double c5p6 = cos(q[4] + q[5]);
+  double s5p6 = sin(q[4] + q[5]);
+  double c5 = cos(q[4]);
+  double s5 = sin(q[4]);
+  double c6 = cos(q[5]);
+  double s6 = sin(q[5]);
 
-  return poses.back();
+  Eigen::Matrix4d T;
+  T << 
+    -s234*s5, 
+    0.5*s234*c5p6 - c234*s6 + 0.5*c5m6*s234, 
+    0.5*s234*s5p6 + c234*c6 - 0.5*s5m6*s234,
+    (52.0/125.0)*c234 + (17.0/40.0)*c23 + 0.419*c2 + 0.5*0.483*s234*s5p6 + 0.483*c234*c6 - 0.051*s234*s5 - 0.5*0.483*s5m6*s234 + 0.189,
+
+    c234*s5,
+    -0.5*c234*c5p6 - s234*s6 - 0.5*c5m6*c234,
+    s234*c6 - 0.5*c234*s5p6 + 0.5*s5m6*c234,
+    (52.0/125.0)*s234 + (17.0/40.0)*s23 + 0.419*s2 - 0.5*0.483*c234*s5p6 + 0.051*c234*s5 + 0.483*s234*c6 + 0.5*0.483*s5m6*c234,
+
+    c5, c6*s5, s5*s6, q[0] + 0.051*c5 + 0.483*s5*s6 + (2.0 / 125.0),
+
+    0, 0, 0, 1;
+
+  return baseFrame*T;
 }
 
 // TODO factor in length of gripper tool by just adjusting initial
@@ -338,110 +366,100 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
     }
 }
 
-void DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
-                                  const std::vector<double>& q,
-                                  std::vector<Eigen::Matrix4d,
-                                  Eigen::aligned_allocator<Eigen::Matrix4d> >* jointPoses) const
-{
-  assert(q.size() == 6);
-
-  Eigen::Vector4d e1; e1(0) = 1.0; e1(1) = 0.0; e1(2) = 0.0; e1(3) = 0.0;
-  Eigen::Vector4d e2; e2(0) = 0.0; e2(1) = 1.0; e2(2) = 0.0; e2(3) = 0.0;
-  Eigen::Vector4d e3; e3(0) = 0.0; e3(1) = 0.0; e3(2) = 1.0; e3(3) = 0.0;
-
-  Eigen::Matrix4d T = baseFrame;
-  jointPoses->push_back(T);
-
-  // \TODO add this joint pose and fix passive primitives accordingly
-  Eigen::Matrix4d T_0_1 = Eigen::Matrix4d::Identity();
-  T_0_1(2,3) = q[0];
-  T = T*T_0_1;
-  
-  Eigen::Matrix4d T_1_2 = Eigen::Matrix4d::Identity();
-  T_1_2 *= zRotation(q[1]);
-  T = T*T_1_2;
-  jointPoses->push_back(T);
-
-  Eigen::Matrix4d T_2_3 = Eigen::Matrix4d::Identity();
-  T_2_3(1,3) = params_.pl2;
-  T_2_3(2,3) = params_.ph2;
-  T_2_3 *= zRotation(q[2]);
-  T = T*T_2_3;
-  jointPoses->push_back(T);
-
-  Eigen::Matrix4d T_3_4 = Eigen::Matrix4d::Identity();
-  T_3_4(1,3) = params_.pl3;
-  T_3_4(2,3) = -params_.ph3;
-  T_3_4 *= zRotation(q[3]);
-  T = T*T_3_4;
-  jointPoses->push_back(T);
-
-  Eigen::Matrix4d T_4_5 = Eigen::Matrix4d::Identity();
-  T_4_5.col(0) = e1;
-  T_4_5.col(1) = -e3;
-  T_4_5.col(2) = e2;
-  T_4_5(1,3) = params_.pl4;
-  T_4_5(2,3) = -params_.ph4;
-  T_4_5 *= zRotation(q[4]);
-  T = T*T_4_5;
-  jointPoses->push_back(T);
-
-  Eigen::Matrix4d T_5_6 = Eigen::Matrix4d::Identity();
-  T_5_6.col(0) = e1;
-  T_5_6.col(1) = e3;
-  T_5_6.col(2) = -e2;
-  T_5_6(2,3) = params_.pl5;
-  T_5_6 *= zRotation(q[5]);
-  T = T*T_5_6;
-  jointPoses->push_back(T);
-
-  Eigen::Matrix4d T_6_RCM = Eigen::Matrix4d::Identity();
-  T_6_RCM.col(0) = e3;
-  T_6_RCM.col(1) = e1;
-  T_6_RCM.col(2) = e2;
-  T_6_RCM.topRightCorner<3,1>() = params_.pRCMOffset;
-  T = T*T_6_RCM;
-  jointPoses->push_back(T);
-}
-
 void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q,
-                                             std::vector<Collisions::Cylisphere>* cylispheres,
+                                             std::vector<Collisions::Cylisphere>* cylispheres
                                              Collisions::Sphere* sphere) const
 {
-  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d> > poses;
-  this->passiveFK(baseFrame, q, &poses);
+  double c2 = cos(q[1]);
+  double s2 = sin(q[1]);
+  double c3 = cos(q[2]);
+  double s3 = sin(q[2]);
+  double c234 = cos(q[1] + q[2] + q[3]);
+  double s234 = sin(q[1] + q[2] + q[3]);
+  double c5 = cos(q[4]);
+  double s5 = sin(q[4]);
+  double r = 0.07;
+  double l1=116e-3;
+  double l2=129e-3;
+  double l3=163e-3;
+  double l4=146e-3;
+  double l5=78e-3;
+  double l6=338e-3;
+  double l7=520e-3;
+  double r2=140e-3;
 
-  Collisions::Cylisphere c;
-  c.r = params_.pLinkRadius;
-  c.p1 = poses[0].topRightCorner<3,1>();
-  c.p2 = poses[1].topRightCorner<3,1>();
-  cylispheres->push_back(c);
+  Collisions::Cylisphere c1;
+  c1.p1 << 0.189, 0.0, q[0];
+  c1.p2 << 0.419*c2 + 0.189, 0.419*s2, q[0];
+  c1.r = r;
 
-  c.p1 = c.p2;
-  c.p2.noalias() = c.p1 + poses[1].block<3,1>(0,1)*params_.pl2;
-  cylispheres->push_back(c);
+  Collisions::Cylisphere c2;
+  c2.p1 = c1.p1;
+  c2.p2 = c1.p1;
+  c2.p2(2) += l1;
+  c2.r = r;
 
-  c.p1 = c.p2;
-  c.p2 = poses[2].topRightCorner<3,1>();
-  cylispheres->push_back(c);
+  Collisions::Cylisphere c3;
+  c3.p1 = c1.p2;
+  c3.p1(2) += 0.5*0.29;
+  c3.p2 = c3.p1;
+  c3.p2(0) += (17.0/40.0)*(c2*c3 - s2*s3);
+  c3.p2(1) += (17.0/40.0)*(c2*s3 + c3*s2);
+  c3.r = r;
 
-  c.p1 = poses[2].topRightCorner<3,1>();
-  c.p2.noalias() = c.p1 + poses[2].block<3,1>(0,1)*params_.pl3;
-  cylispheres->push_back(c);
+  Collisions::Cylisphere c4;
+  c4.p1 = c1.p2;
+  c4.p2 = c3.p1;
+  c4.p2(2) += l1;
+  c4.r = r;
 
-  // skip next link because it's small
+  Collisions::Cylisphere c5;
+  c5.p1 = c3.p2;
+  c5.p1(2) += l1;
+  c5.p2 = c3.p2;
+  c5.p2(2) -= l2;
+  c5.r = r;
 
-  c.p1 = poses[4].topRightCorner<3,1>();
-  c.p2 = poses[5].topRightCorner<3,1>();
-  cylispheres->push_back(c);
+  Collisions::Cylisphere c6;
+  c6.p1 = c5.p2;
+  c6.p2 = c5.p2;
+  c6.p2(0) += -l3*c234;
+  c6.p2(1) += -l3*s234;
+  c6.r = r;
 
-  // add the sphere at L units up in z-direction from the prior
-  // cylisphere's p2
-  // sphere->r = params_.eL;
-  // sphere->p.noalias() = poses[5].topRightCorner<3,1>() + poses[5].block<3,1>(0,2)*params_.eL;
-  sphere->r = 0.14;
-  sphere->p.noalias() = poses[5].topRightCorner<3,1>() + 0.14*poses[5].block<3,1>(0,2);
+  Collisions::Cylisphere c7;
+  c7.p1 = c5.p2;
+  c7.p1(0) += l4*sin234*s5 + l5*c234;
+  c7.p1(1) += -l4*c234*s5  l5*s234;
+  c7.p1(2) += -l4*c5;
+  c7.p2 = c7.p1;
+  c7.p2(0) += l6*c234;
+  c7.p2(1) += l6*s234;
+
+  // sorry mother
+  Eigen::Matrix4d rcmFrame = this->passiveFK(Eigen::Matrix4d::Identity, q);
+  Collisions::Sphere s;
+  s.p = rcmFrame.topRightCorner<3,1>() - l7*rcmFrame.block<3,1>(0,2);
+  s.r = r2;
+
+  cylispheres->push_back(c1);
+  cylispheres->push_back(c2);
+  cylispheres->push_back(c3);
+  cylispheres->push_back(c4);
+  cylispheres->push_back(c5);
+  cylispheres->push_back(c6);
+  cylispheres->push_back(c7);
+  *sphere = s;
+
+  Eigen::Matrix3d R = baseFrame.topLeftCorner<3,3>();
+  Eigen::Matrix3d T = baseFrame.topRightCorner<3,1>();
+  for (std::size_t i = cylispheres->size()-7; i < cylispheres->size(); ++i)
+    {
+    (*cylispheres)[i].p1 = R*(*cylispheres)[i].p1 + T;
+    (*cylispheres)[i].p2 = R*(*cylispheres)[i].p2 + T;
+    }
+  sphere->p = R*sphere->p + T;
 }
 
 DavinciParameters DavinciKinematics::getParams() const
