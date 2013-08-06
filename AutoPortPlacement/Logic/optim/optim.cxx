@@ -159,11 +159,7 @@ double PassiveLRProblem::objective(const std::vector<double>& x,
   std::vector<Collisions::Sphere> sR(1);
   kin_.getPassivePrimitives(baseFrameR_, qR, &cR, &(sR[0]));
   
-  double o = Collisions::distance(cL, sL, cR, sR); // DEBUG
-  // std::cout << "o: " << o << std::endl; // DEBUG
-
-  // return Collisions::distance(cL, sL, cR, sR);
-  return o; // DEBUG
+  return Collisions::distance(cL, sL, cR, sR);
 }
 
 void PassiveLRProblem::constraint(std::vector<double>& m,

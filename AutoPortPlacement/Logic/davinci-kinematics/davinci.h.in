@@ -2,6 +2,8 @@
 #define DAVINCI_KINEMATICS_H
 
 #include <Eigen/Dense>
+#include <Eigen/StdVector>
+
 #include <vector>
 
 #include <collisions/collisions.h>
@@ -94,12 +96,28 @@ public:
 
   DavinciParameters getParams() const;
 
+  void unscentedIK(const Eigen::Matrix4d& portFrame,
+                   const Eigen::Matrix4d& meanTargetPose,
+                   const Eigen::Vector3d& positionVariance,
+                   const Eigen::Vector3d& orientVariance,
+                   std::vector<double>* mean_qOut,
+                   Eigen::Matrix<double,6,6>* covariance_qOut) const;
+
+  void unscentedClearance(const Eigen::Matrix4d& portFrameL,
+                          const Eigen::Matrix4d& portFrameR,
+                          const Eigen::Matrix4d& meanTargetPose,
+                          const Eigen::Vector3d& positionVariance,
+                          const Eigen::Vector3d& orientVariance,
+                          double* mean_clearance,
+                          double* cov_clearance) const;
+
 private:
   DavinciParameters params_;
 
   void passiveFK(const Eigen::Matrix4d& baseFrame,
                  const std::vector<double>& q,
-                 std::vector<Eigen::Matrix4d>* jointPoses) const;
+                 std::vector<Eigen::Matrix4d,
+                 Eigen::aligned_allocator<Eigen::Matrix4d> >* jointPoses) const;
 };
 
 #endif
