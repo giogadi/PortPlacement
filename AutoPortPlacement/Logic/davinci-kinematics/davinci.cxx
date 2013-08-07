@@ -368,7 +368,7 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
 
 void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q,
-                                             std::vector<Collisions::Cylisphere>* cylispheres
+                                             std::vector<Collisions::Cylisphere>* cylispheres,
                                              Collisions::Sphere* sphere) const
 {
   double c2 = cos(q[1]);
@@ -389,71 +389,72 @@ void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
   double l7=520e-3;
   double r2=140e-3;
 
-  Collisions::Cylisphere c1;
-  c1.p1 << 0.189, 0.0, q[0];
-  c1.p2 << 0.419*c2 + 0.189, 0.419*s2, q[0];
-  c1.r = r;
+  Collisions::Cylisphere C1;
+  C1.p1 << 0.189, 0.0, q[0];
+  C1.p2 << 0.419*c2 + 0.189, 0.419*s2, q[0];
+  C1.r = r;
 
-  Collisions::Cylisphere c2;
-  c2.p1 = c1.p1;
-  c2.p2 = c1.p1;
-  c2.p2(2) += l1;
-  c2.r = r;
+  Collisions::Cylisphere C2;
+  C2.p1 = C1.p1;
+  C2.p2 = C1.p1;
+  C2.p2(2) += l1;
+  C2.r = r;
 
-  Collisions::Cylisphere c3;
-  c3.p1 = c1.p2;
-  c3.p1(2) += 0.5*0.29;
-  c3.p2 = c3.p1;
-  c3.p2(0) += (17.0/40.0)*(c2*c3 - s2*s3);
-  c3.p2(1) += (17.0/40.0)*(c2*s3 + c3*s2);
-  c3.r = r;
+  Collisions::Cylisphere C3;
+  C3.p1 = C1.p2;
+  C3.p1(2) += 0.5*0.29;
+  C3.p2 = C3.p1;
+  C3.p2(0) += (17.0/40.0)*(c2*c3 - s2*s3);
+  C3.p2(1) += (17.0/40.0)*(c2*s3 + c3*s2);
+  C3.r = r;
 
-  Collisions::Cylisphere c4;
-  c4.p1 = c1.p2;
-  c4.p2 = c3.p1;
-  c4.p2(2) += l1;
-  c4.r = r;
+  Collisions::Cylisphere C4;
+  C4.p1 = C1.p2;
+  C4.p2 = C3.p1;
+  C4.p2(2) += l1;
+  C4.r = r;
 
-  Collisions::Cylisphere c5;
-  c5.p1 = c3.p2;
-  c5.p1(2) += l1;
-  c5.p2 = c3.p2;
-  c5.p2(2) -= l2;
-  c5.r = r;
+  Collisions::Cylisphere C5;
+  C5.p1 = C3.p2;
+  C5.p1(2) += l1;
+  C5.p2 = C3.p2;
+  C5.p2(2) -= l2;
+  C5.r = r;
 
-  Collisions::Cylisphere c6;
-  c6.p1 = c5.p2;
-  c6.p2 = c5.p2;
-  c6.p2(0) += -l3*c234;
-  c6.p2(1) += -l3*s234;
-  c6.r = r;
+  Collisions::Cylisphere C6;
+  C6.p1 = C5.p2;
+  C6.p2 = C5.p2;
+  C6.p2(0) += -l3*c234;
+  C6.p2(1) += -l3*s234;
+  C6.r = r;
 
-  Collisions::Cylisphere c7;
-  c7.p1 = c5.p2;
-  c7.p1(0) += l4*sin234*s5 + l5*c234;
-  c7.p1(1) += -l4*c234*s5  l5*s234;
-  c7.p1(2) += -l4*c5;
-  c7.p2 = c7.p1;
-  c7.p2(0) += l6*c234;
-  c7.p2(1) += l6*s234;
+  Collisions::Cylisphere C7;
+  C7.p1 = C5.p2;
+  C7.p1(0) += l4*s234*s5 + l5*c234;
+  C7.p1(1) += -l4*c234*s5 +  l5*s234;
+  C7.p1(2) += -l4*c5;
+  C7.p2 = C7.p1;
+  C7.p2(0) += l6*c234;
+  C7.p2(1) += l6*s234;
+  C7.r = 0.5*r;
 
   // sorry mother
-  Eigen::Matrix4d rcmFrame = this->passiveFK(Eigen::Matrix4d::Identity, q);
+  Eigen::Matrix4d rcmFrame = this->passiveFK(Eigen::Matrix4d::Identity(), q);
   Collisions::Sphere s;
   s.p = rcmFrame.topRightCorner<3,1>() - l7*rcmFrame.block<3,1>(0,2);
   s.r = r2;
 
-  cylispheres->push_back(c1);
-  cylispheres->push_back(c2);
-  cylispheres->push_back(c3);
-  cylispheres->push_back(c4);
-  cylispheres->push_back(c5);
-  cylispheres->push_back(c6);
-  cylispheres->push_back(c7);
+  cylispheres->push_back(C1);
+  cylispheres->push_back(C2);
+  cylispheres->push_back(C3);
+  cylispheres->push_back(C4);
+  cylispheres->push_back(C5);
+  cylispheres->push_back(C6);
+  cylispheres->push_back(C7);
   *sphere = s;
 
   Eigen::Matrix3d R = baseFrame.topLeftCorner<3,3>();
-  Eigen::Matrix3d T = baseFrame.topRightCorner<3,1>();
+  Eigen::Vector3d T = baseFrame.topRightCorner<3,1>();
   for (std::size_t i = cylispheres->size()-7; i < cylispheres->size(); ++i)
     {
     (*cylispheres)[i].p1 = R*(*cylispheres)[i].p1 + T;

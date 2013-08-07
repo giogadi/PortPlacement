@@ -113,11 +113,6 @@ public:
 
 private:
   DavinciParameters params_;
-
-  void passiveFK(const Eigen::Matrix4d& baseFrame,
-                 const std::vector<double>& q,
-                 std::vector<Eigen::Matrix4d,
-                 Eigen::aligned_allocator<Eigen::Matrix4d> >* jointPoses) const;
 };
 
 #endif

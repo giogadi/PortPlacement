@@ -115,10 +115,8 @@ void vtkSlicerAutoPortPlacementLogic::AddDavinciPrimitives(const vtkMatrix4x4& v
     cylinderVec.normalize();
     Eigen::Vector3d e2; e2(0) = 0.0; e2(1) = 1.0; e2(2) = 0.0;
     Eigen::Vector3d rotationAxis = e2.cross(cylinderVec);
-    double crossNorm = rotationAxis.norm();
-    double angle = asin(crossNorm);
-    rotationAxis /= crossNorm;
-
+    double angle = acos(e2.dot(cylinderVec));
+    rotationAxis.normalize();
 
     t->Translate(p1(0), p1(1), p1(2));
     t->RotateWXYZ(vtkMath::DegreesFromRadians(angle), 
