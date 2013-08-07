@@ -5,22 +5,11 @@ int main()
   DavinciKinematics kinematics;
 
   Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
-  Eigen::Vector3d e1 = baseFrameL.block<3,1>(0,0);
-  Eigen::Vector3d e2 = baseFrameL.block<3,1>(0,1);
-  Eigen::Vector3d e3 = baseFrameL.block<3,1>(0,2);
 
-  // Rotate about +z by 90 degrees, translate -0.5 in x
-  baseFrameL.block<3,1>(0,0) = e2;
-  baseFrameL.block<3,1>(0,1) = -e1;
-  baseFrameL.block<3,1>(0,2) = e3;
-  baseFrameL.topRightCorner<3,1>() = -0.5*e1;
-
-  // Rotate about +z by -90 degrees, translate 0.5 in x
+  // Rotate about +z by 180 degrees
   Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
-  baseFrameR.block<3,1>(0,0) = -e2;
-  baseFrameR.block<3,1>(0,1) = e1;
-  baseFrameR.block<3,1>(0,2) = e3;
-  baseFrameR.topRightCorner<3,1>() = 0.5*e1;
+  baseFrameR(0,0) = -1.0;
+  baseFrameR(1,1) = -1.0;
 
   Eigen::Vector3d rcm;
   rcm(0) = 0.0;

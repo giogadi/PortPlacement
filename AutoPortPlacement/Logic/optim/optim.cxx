@@ -66,10 +66,12 @@ bool Optim::findCollisionFreePassiveLR(const DavinciKinematics& kin,
   nlopt::opt opt(nlopt::GN_ISRES, 12);
 
   std::vector<double> lb(12, -3.14);
-  lb[0] = 0.1; lb[6] = 0.1;
+  lb[0] = 0.5; lb[6] = 0.5;
   opt.set_lower_bounds(lb);
 
   std::vector<double> ub(12, 3.14);
+  ub[0] = 1.0;
+  ub[6] = 1.0;
   opt.set_upper_bounds(ub);
 
   opt.set_max_objective(&PassiveLRProblem::wrapObj, &obj);
@@ -79,12 +81,12 @@ bool Optim::findCollisionFreePassiveLR(const DavinciKinematics& kin,
 
   opt.set_xtol_rel(-1e-8);
   opt.set_xtol_abs(-1);
-  opt.set_maxtime(30.0);
+  opt.set_maxtime(10.0);
   
   // Use IK to find initial passive configurations which reach the
   // required RCM's as nice initial guesses
   std::vector<double> qL(6, 0.0);
-  qL[0] = 0.1;
+  qL[0] = 0.5;
   kin.passiveIK(baseFrameL, rcmL, &qL);
 
   std::cout << "Left IK done!" << std::endl; // debug
@@ -93,7 +95,7 @@ bool Optim::findCollisionFreePassiveLR(const DavinciKinematics& kin,
             << std::endl;
 
   std::vector<double> qR(6, 0.0);
-  qR[0] = 0.1;
+  qR[0] = 0.5;
   kin.passiveIK(baseFrameR, rcmR, &qR);
 
   std::cout << "Right IK done!" << std::endl; // debug

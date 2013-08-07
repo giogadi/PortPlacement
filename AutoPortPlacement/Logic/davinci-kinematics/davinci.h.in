@@ -25,16 +25,6 @@ struct DavinciParameters
   // radii for collision primitives
   double er1; // radius of cylisphere representing instrument
   double er2; // radius of cylisphere representing instrument holder and parallelogram
-
-  double pl2;
-  double ph2;
-  double pl3;
-  double ph3;
-  double pl4;
-  double ph4;
-  double pl5;
-  Eigen::Vector3d pRCMOffset;
-  double pLinkRadius;  
 };
 
 class DavinciKinematics
@@ -65,6 +55,8 @@ public:
   // Given that the intracorporeal mechanism is placed such that its
   // RCM is at portFrame, and given a goal pose worldPose for the
   // wrist, find the configuration q which gets us there.
+  //
+  // \TODO Give 5D IK a try (use azimian's code from daVinci_IK.m)
   void intraIK(const Eigen::Matrix4d& portFrame,
                const Eigen::Matrix4d& worldPose,
                std::vector<double>* q) const;

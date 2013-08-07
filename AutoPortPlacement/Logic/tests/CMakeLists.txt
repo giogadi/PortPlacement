@@ -26,12 +26,10 @@ add_executable(config-ut-test
   config-ut-test.cxx)
 target_link_libraries(config-ut-test davinci)
 
-set(DAVINCI_PARAMS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/data/davinci-parameters.xml")
-
-add_test(daVinci_load_params_test da-vinci-params-load-test ${DAVINCI_PARAMS_FILE})
+add_test(daVinci_load_params_test da-vinci-params-load-test)
 add_test(daVinci_intra_ik_test intra-ik-test)
-add_test(daVinci_jacobian_test jacobian-test ${DAVINCI_PARAMS_FILE})
-add_test(daVinci_passive_ik_test da-vinci-passive-ik-test ${DAVINCI_PARAMS_FILE})
+add_test(daVinci_jacobian_test jacobian-test)
+add_test(daVinci_passive_ik_test da-vinci-passive-ik-test)
 add_test(collisions_distance_test min-distance-test)
 add_test(passive_lr_optim_test passive-lr-optim-test)
 add_test(config_ut_test config-ut-test)

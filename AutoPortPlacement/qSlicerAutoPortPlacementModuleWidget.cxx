@@ -83,8 +83,10 @@ void qSlicerAutoPortPlacementModuleWidget::onPushButtonClicked()
 
     vtkSmartPointer<vtkTransform> T2 = vtkSmartPointer<vtkTransform>::New();
 
-    double qpL[] = {0.5, -0.17, -0.17, -0.17, -0.17, -0.17};
-    double qpR[] = {0.5, 0.17, 0.17, 0.17, 0.17, 0.17};
+    // double qpL[] = {0.5, -0.17, -0.17, -0.17, -0.17, -0.17};
+    // double qpR[] = {0.5, 0.17, 0.17, 0.17, 0.17, 0.17};
+    double qpL[] = {1, 1.54755, 0.630597, -1.06004, 1.81241, -2.4369};
+    double qpR[] = {0.5, -0.65189, -0.159904, -1.83959, -2.12555, -0.53937};
     double qa[] = {0, 0, 0, 0, 0, 0};
 
     portLogic->AddDavinciPrimitives(*T1->GetMatrix(), qpL, qa);

@@ -18,12 +18,12 @@ int main(int argc, char** argv)
   for (std::size_t i = 0; i < q.size(); ++i)
     std::cout << q[i] << std::endl;
 
-  if (fabs(q[0]) <= 0.0000001 &&
-      fabs(q[1]) <= 0.0000001 &&
-      fabs(q[2]) <= 0.0000001 &&
-      fabs(q[3] - 0.29) <= 0.0000001 &&
-      fabs(q[4]) <= 0.0000001 &&
-      fabs(q[5]) <= 0.0000001)
+  Eigen::Matrix4d fkPose = kinematics.intraFK(Eigen::Matrix4d::Identity(),
+                                              q);
+
+  if (fabs(fkPose(0,0) - worldPose(0,0)) <= 0.0000001 &&
+      fabs(fkPose(1,1) - worldPose(1,1)) <= 0.0000001 &&
+      fabs(fkPose(0,3) - worldPose(0,3)) <= 0.0000001)
     return 0;
   else
     return 1;

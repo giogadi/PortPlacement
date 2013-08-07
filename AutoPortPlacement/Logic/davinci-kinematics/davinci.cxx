@@ -88,22 +88,6 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
   params_.el5 = extra.child("l5").text().as_double();
   params_.er1 = extra.child("r1").text().as_double();
   params_.er2 = extra.child("r2").text().as_double();
-
-  pugi::xml_node passive = doc.child("davinci_parameters").child("passive");
-  params_.pl2 = passive.child("l2").text().as_double();
-  params_.ph2 = passive.child("h2").text().as_double();
-  params_.pl3 = passive.child("l3").text().as_double();
-  params_.ph3 = passive.child("h3").text().as_double();
-  params_.pl4 = passive.child("l4").text().as_double();
-  params_.ph4 = passive.child("h4").text().as_double();
-  params_.pl5 = passive.child("l5").text().as_double();
-  
-  pugi::xml_node rcmOffset = passive.child("rcm_offset");
-  params_.pRCMOffset(0) = rcmOffset.child("x").text().as_double();
-  params_.pRCMOffset(1) = rcmOffset.child("y").text().as_double();
-  params_.pRCMOffset(2) = rcmOffset.child("z").text().as_double();
-
-  params_.pLinkRadius = passive.child("link_radius").text().as_double();
 }
 
 // \TODO reduce number of intermediate matrices for optimization

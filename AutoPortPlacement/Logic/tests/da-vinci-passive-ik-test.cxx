@@ -5,14 +5,7 @@
 
 int main(int argc, char* argv[])
 {
-  if (argc < 2)
-    {
-    std::cerr << "Usage: AutoPortPlacementModuleDaVinciIKTest davinciFilePath"
-              << std::endl;
-    return 1;
-    }
-
-  DavinciKinematics kinematics(argv[1]);
+  DavinciKinematics kinematics;
 
   std::vector<double> q(6,0.0);
   q[0] = 0.1;
