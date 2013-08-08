@@ -275,7 +275,6 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   FeasiblePlanProblem problem = {kin, baseFrameL, baseFrameR, taskFrames, 
                                  portCurvePoint1, portCurvePoint2, chanceConstraint};
 
-  // \TODO try another algorithm
   nlopt::opt opt(nlopt::GN_ISRES, 15);
   
   std::vector<double> lb(15);
@@ -316,7 +315,7 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   opt.set_stopval(0.0);
 
   // Stop the optimization after 1000 seconds have passed no matter what
-  opt.set_maxtime(1000.0);
+  opt.set_maxtime(100.0);
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at middle of port curve
@@ -443,7 +442,7 @@ void FeasiblePlanProblem::activeClearConstraint(const Eigen::Matrix4d& portFrame
 
   boost::math::normal n;
   double quantile = boost::math::quantile(n, 1 - this->chanceConstraint);
-  *c = quantile*sqrt(orientVariance) - mean_d;
+  *c = quantile*sqrt(variance_d) - mean_d;
 }
 
 void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFrameL,
@@ -456,7 +455,8 @@ void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFram
   std::vector<Collisions::Sphere> sL(1), sR(1);
   this->kin.getPassivePrimitives(baseFrameL, qL, &cL, &sL[0]);
   this->kin.getPassivePrimitives(baseFrameR, qR, &cR, &sR[0]);
-  *c = Collisions::distance(cL, sL, cR, sR);
+  double d = Collisions::distance(cL, sL, cR, sR);
+  *c = exp(-d) - 1;
 }
 
 // inequality constraints:
