@@ -38,7 +38,7 @@ namespace
                           double* result,
                           unsigned int n,
                           const double* x,
-                          double* grad,
+                          double* /*grad*/,
                           void* data)
     {
       std::vector<double> c(m);
@@ -150,7 +150,7 @@ bool Optim::findCollisionFreePassiveLR(const DavinciKinematics& kin,
 }
 
 double PassiveLRProblem::objective(const std::vector<double>& x,
-                                   std::vector<double>& grad)
+                                   std::vector<double>& /*grad*/)
 {
   // Get collision primitives for left arm
   std::vector<double> qL(x.begin(), x.begin()+6);
@@ -169,7 +169,7 @@ double PassiveLRProblem::objective(const std::vector<double>& x,
 
 void PassiveLRProblem::constraint(std::vector<double>& m,
                                   const std::vector<double>& x,
-                                  std::vector<double>& grad)
+                                  std::vector<double>& /*grad*/)
 {
   std::vector<double> qL(x.begin(), x.begin()+6);
   Eigen::Vector3d error = kin_.passiveFK(baseFrameL_, qL).topRightCorner<3,1>() - rcmL_;
@@ -227,15 +227,6 @@ namespace
                          const double* x,
                          double* grad,
                          void* data);
-
-    // \TODO if this doesn't work, try making the port constraint
-    // another inequality constraint or w/e
-    static void wrapEq(unsigned int m,
-                       double* result,
-                       unsigned int n,
-                       const double* x,
-                       double* grad,
-                       void* data);
 
     static double feasibleMinimaxObj(const std::vector<double>& x,
                                      std::vector<double>& grad,
@@ -302,21 +293,17 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
 
   opt.set_min_objective(&FeasiblePlanProblem::feasibleMinimaxObj, 0);
 
-  std::size_t numIneqConstraints = 1 + 13*taskFrames.size();
+  std::size_t numIneqConstraints = 3 + 13*taskFrames.size();
   std::vector<double> ineqTol(numIneqConstraints, 0.0000001);
   opt.add_inequality_mconstraint(&FeasiblePlanProblem::wrapIneq, 
                                  (void*) &problem,
                                  ineqTol);
-  std::vector<double> eqTol(2, 0.001);
-  opt.add_equality_mconstraint(&FeasiblePlanProblem::wrapEq,
-                               (void*) &problem,
-                               eqTol);
 
   // Stop the optimization once we've found a point that satisfies the constraints (t <= 0)
   opt.set_stopval(0.0);
 
   // Stop the optimization after 1000 seconds have passed no matter what
-  opt.set_maxtime(1000.0);
+  opt.set_maxtime(100.0);
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at middle of port curve
@@ -350,17 +337,14 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   std::cout << "f(x0): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) &problem)  << std::endl;
 
   double* c_ineq = new double[numIneqConstraints];
-  double c_eq[2];
   double x_array[15];
   for (unsigned i = 0; i < 15; ++i)
     x_array[i] = x[i];
   FeasiblePlanProblem::wrapIneq(numIneqConstraints, c_ineq, 15, x_array, 0, (void*) &problem);
-  FeasiblePlanProblem::wrapEq(2, c_eq, 15, x_array, 0, (void*) &problem);
   std::cout << "c_ineq(x0):";
   for (unsigned i = 0; i < numIneqConstraints; ++i)
     std::cout << " " << (c_ineq[i] + x[14]);
   std::cout << std::endl;
-  std::cout << "c_eq(x0): " << c_eq[0] << " " << c_eq[1] << std::endl;
 
   double minf;
   nlopt::result result = opt.optimize(x, minf);
@@ -371,12 +355,10 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   for (unsigned i = 0; i < 15; ++i)
     x_array[i] = x[i];
   FeasiblePlanProblem::wrapIneq(numIneqConstraints, c_ineq, 15, x_array, 0, (void*) &problem);
-  FeasiblePlanProblem::wrapEq(2, c_eq, 15, x_array, 0, (void*) &problem);
   std::cout << "c_ineq(x):";
   for (unsigned i = 0; i < numIneqConstraints; ++i)
     std::cout << " " << (c_ineq[i] + x[14]);
   std::cout << std::endl;
-  std::cout << "c_eq(x): " << c_eq[0] << " " << c_eq[1] << std::endl;
 
   std::cout << "x:";
   for (unsigned i = 0; i < x.size(); ++i)
@@ -396,14 +378,14 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   return true;
 }
 
-// \TODO try making this a squared error if things suck
 void FeasiblePlanProblem::portConstraint(const Eigen::Matrix4d& baseFrame,
                                          const std::vector<double>& q,
                                          double* c) const
 {
   Eigen::Matrix4d rcm = this->kin.passiveFK(baseFrame, q);
-  *c = Collisions::distance(this->portCurvePoint1, this->portCurvePoint2,
-                            rcm.topRightCorner<3,1>());
+  double d = Collisions::distance(this->portCurvePoint1, this->portCurvePoint2,
+                                  rcm.topRightCorner<3,1>());
+  *c = d*d - 0.001*0.001;
 }
 
 void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
@@ -456,7 +438,8 @@ void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFram
   std::vector<Collisions::Sphere> sL(1), sR(1);
   this->kin.getPassivePrimitives(baseFrameL, qL, &cL, &sL[0]);
   this->kin.getPassivePrimitives(baseFrameR, qR, &cR, &sR[0]);
-  *c = Collisions::distance(cL, sL, cR, sR);
+  double d = Collisions::distance(cL, sL, cR, sR);
+  *c = -d*d;
 }
 
 // inequality constraints:
@@ -472,7 +455,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
 { 
   FeasiblePlanProblem* problem = reinterpret_cast<FeasiblePlanProblem*>(data);
 
-  if (m != 1 + (problem->taskFrames.size())*13)
+  if (m != 3 + (problem->taskFrames.size())*13)
     throw std::runtime_error("wrapIneq Error: wrong number of constraints!");
 
   if (n != 15)
@@ -484,6 +467,10 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
   // passive clear constraint
   problem->passiveClearConstraint(problem->baseFrameL, problem->baseFrameR,
                                   qL, qR, &result[0]); 
+
+  // port constraints
+  problem->portConstraint(problem->baseFrameL, qL, &result[1]);
+  problem->portConstraint(problem->baseFrameR, qR, &result[2]);
 
   // ik constraints
   std::vector<double> c(6);
@@ -499,7 +486,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
                           orientVariance,
                           &c);
     for (unsigned i = 0; i < 6; ++i)
-      result[1+(k*12)+i] = c[i];
+      result[3+(k*12)+i] = c[i];
 
     problem->ikConstraint(portFrameR,
                           problem->taskFrames[k],
@@ -507,7 +494,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
                           orientVariance,
                           &c);
     for (unsigned i = 0; i < 6; ++i)
-      result[1+(k*12)+i+6] = c[i];
+      result[3+(k*12)+i+6] = c[i];
     }
 
   // active clearance constraints
@@ -515,39 +502,13 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
     {
     problem->activeClearConstraint(portFrameL, portFrameR, problem->taskFrames[k],
                                    spatialVariance, orientVariance,
-                                   &result[1+(problem->taskFrames.size()*12)+k]);
+                                   &result[3+(problem->taskFrames.size()*12)+k]);
     }
 
   // make sure to subtract away t from all constraints
   double t = x[14];
   for (unsigned i = 0; i < m; ++i)
     result[i] -= t;
-}
-
-// equality constraints:
-// 1*2 port constraints
-void FeasiblePlanProblem::wrapEq(unsigned int m,
-                                 double* result,
-                                 unsigned int n,
-                                 const double* x,
-                                 double* /*grad*/,
-                                 void* data)
-{
-  if (m != 2)
-    throw std::runtime_error("wrapEq Error: wrong number of constraints!");
-
-  if (n != 15)
-    throw std::runtime_error("wrapEq Error: wrong number of variables!");
-
-  FeasiblePlanProblem* problem = reinterpret_cast<FeasiblePlanProblem*>(data);
-  std::vector<double> qL(&x[0], &x[6]);
-  std::vector<double> qR(&x[6], &x[12]);
-  double t = x[14];
-
-  problem->portConstraint(problem->baseFrameL, qL, &result[0]);
-  problem->portConstraint(problem->baseFrameR, qR, &result[1]);
-  // result[0] -= t;
-  // result[1] -= t;
 }
 
 double FeasiblePlanProblem::feasibleMinimaxObj(const std::vector<double>& x,
