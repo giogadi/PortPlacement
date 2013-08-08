@@ -88,22 +88,29 @@ double Collisions::distance(const Cylisphere& c1, const Cylisphere& c2)
 
 // Adapted from point-to-segment distance calculation from:
 // http://geomalgorithms.com/a02-_lines.html#Distance-to-Ray-or-Segment
-double Collisions::distance(const Cylisphere& c, const Sphere& s)
+double Collisions::distance(const Eigen::Vector3d& segmentPoint1, 
+                            const Eigen::Vector3d& segmentPoint2,
+                            const Eigen::Vector3d& point)
 {
-  Eigen::Vector3d v = c.p2 - c.p1;
-  Eigen::Vector3d w = s.p - c.p1;
+  Eigen::Vector3d v = segmentPoint2 - segmentPoint1;
+  Eigen::Vector3d w = point - segmentPoint1;
 
   double c1 = w.dot(v);
   if ( c1 <= 0 )
-    return (c.p1 - s.p).norm() - (c.r + s.r);
+    return (segmentPoint1 - point).norm();
 
   double c2 = v.dot(v);
   if ( c2 <= c1 )
-    return (c.p2 - s.p).norm() - (c.r + s.r);
+    return (segmentPoint2 - point).norm();
 
   double b = c1 / c2;
-  Eigen::Vector3d Pb = c.p1 + b*v;
-  return (Pb - s.p).norm() - (c.r + s.r);
+  Eigen::Vector3d Pb = segmentPoint1 + b*v;
+  return (Pb - point).norm();
+}
+
+double Collisions::distance(const Cylisphere& c, const Sphere& s)
+{
+  return distance(c.p1, c.p2, s.p) - (c.r + s.r);
 }
 
 double Collisions::distance(const Sphere& s1, const Sphere& s2)

@@ -19,6 +19,11 @@ namespace Collisions
     double r;
   };
 
+  // Compute distance between a segment and a point
+  double distance(const Eigen::Vector3d& segmentPoint1, 
+                  const Eigen::Vector3d& segmentPoint2,
+                  const Eigen::Vector3d& point);
+
   double distance(const Cylisphere& c, const Sphere& s);
   double distance(const Cylisphere& c1, const Cylisphere& c2);
   double distance(const Sphere& s1, const Sphere& s2);
