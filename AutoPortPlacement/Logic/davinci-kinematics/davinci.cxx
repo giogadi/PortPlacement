@@ -557,6 +557,43 @@ namespace
   }
 }
 
+double DavinciKinematics::fullClearances(const Eigen::Matrix4d& baseFrameL,
+                                         const Eigen::Matrix4d& baseFrameR,
+                                         const std::vector<double>& qL,
+                                         const std::vector<double>& qR,
+                                         const Eigen::Matrix4d& targetPose,
+                                         std::vector<double>* dists) const
+{
+  std::vector<Collisions::Cylisphere> cylL, cylR;
+  std::vector<Collisions::Sphere> sL(1), sR(1);
+  this->getPassivePrimitives(baseFrameL, qL, &cylL, &sL[0]);
+  this->getPassivePrimitives(baseFrameR, qR, &cylR, &sR[0]);  
+
+  std::vector<double> qaL(6);
+  std::vector<double> qaR(6);
+  Eigen::Matrix4d pL = this->passiveFK(baseFrameL, qL);
+  Eigen::Matrix4d pR = this->passiveFK(baseFrameR, qR);
+  this->intraIK(pL, targetPose, &qaL);
+  this->intraIK(pR, targetPose, &qaR);
+
+  std::vector<Collisions::Cylisphere> cylAL, cylAR;
+  this->getExtraCylispheres(pL, qaL, &cylAL);
+  this->getExtraCylispheres(pR, qaR, &cylAR);
+
+  for (unsigned i = 0; i < cylAL.size(); ++i)
+    {
+    // don't need to add actives for left arm since we don't need to
+    // check active-active collisions twice
+    cylR.push_back(cylAR[i]);
+    }
+
+  std::vector<Collisions::Sphere> empty;
+  double d1 = Collisions::distances(cylAL, empty, cylR, sR, dists);
+  double d2 = Collisions::distances(cylAR, empty, cylL, sL, dists);
+
+  return std::min(d1,d2);
+}
+
 // \TODO for efficiency compute unscented IK and unscented clearance
 // at the same time
 void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& portFrameL,

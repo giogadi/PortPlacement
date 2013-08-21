@@ -29,11 +29,19 @@ namespace Collisions
   double distance(const Sphere& s1, const Sphere& s2);
 
   // Compute the minimum distance between one set of
-  // cylispheres+sphere and another set
+  // cylispheres+spheres and another set
   double distance(const std::vector<Cylisphere>& c1,
                   const std::vector<Sphere>& s1,
                   const std::vector<Cylisphere>& c2,
                   const std::vector<Sphere>& s2);
+
+  // Compute all the distances between one set of cylispheres+spheres
+  // to another set
+  double distances(const std::vector<Cylisphere>& c1,
+                   const std::vector<Sphere>& s1,
+                   const std::vector<Cylisphere>& c2,
+                   const std::vector<Sphere>& s2,
+                   std::vector<double>* d);
 }
 
 #endif

@@ -195,16 +195,12 @@ namespace
 
     void ikConstraint(const Eigen::Matrix4d& portFrame,
                       const Eigen::Matrix4d& taskFrame,
-                      double spatialVariance,
-                      double orientVariance,
                       std::vector<double>* c) const;
 
-    void activeClearConstraint(const Eigen::Matrix4d& portFrameL,
-                               const Eigen::Matrix4d& portFrameR,
+    void activeClearConstraint(const std::vector<double>& qL,
+                               const std::vector<double>& qR,
                                const Eigen::Matrix4d& taskFrame,
-                               double spatialVariance,
-                               double orientVariance,
-                               double* c) const;
+                               std::vector<double>* c) const;
 
     void passiveClearConstraint(const Eigen::Matrix4d& baseFrameL,
                                 const Eigen::Matrix4d& baseFrameR,
@@ -218,7 +214,6 @@ namespace
     const Optim::Matrix4dVec& taskFrames;
     const Eigen::Vector3d& portCurvePoint1;
     const Eigen::Vector3d& portCurvePoint2;
-    double chanceConstraint;
 
     static void wrapIneq(unsigned int m,
                          double* result,
@@ -230,6 +225,16 @@ namespace
     static double feasibleMinimaxObj(const std::vector<double>& x,
                                      std::vector<double>& grad,
                                      void* data);
+
+    void getBounds(std::vector<double>* lb, std::vector<double>* ub) const;
+
+    void getInitialGuessIK(std::vector<double>* x0) const;
+    void getInitialGuessExact(std::vector<double>* x0) const;
+
+    void outputStateProperties(std::ostream& out, const std::vector<double>& x) const;
+
+    unsigned getNumVariables() const;
+    unsigned getNumConstraints() const;
   };
 
   const double activeLowerBounds[] = {-boost::math::constants::pi<double>()/3,
@@ -256,42 +261,25 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
                              const Matrix4dVec& taskFrames,
                              const Eigen::Vector3d& portCurvePoint1,
                              const Eigen::Vector3d& portCurvePoint2,
-                             double chanceConstraint,
                              std::vector<double>* qL_out,
-                             std::vector<double>* qR_out,
-                             double* spatialVariance,
-                             double* orientVariance)
+                             std::vector<double>* qR_out)
 {
   FeasiblePlanProblem problem = {kin, baseFrameL, baseFrameR, taskFrames, 
-                                 portCurvePoint1, portCurvePoint2, chanceConstraint};
+                                 portCurvePoint1, portCurvePoint2};
 
-  nlopt::opt opt(nlopt::GN_ISRES, 15);
+  const unsigned numVariables = problem.getNumVariables();
+
+  nlopt::opt opt(nlopt::GN_ISRES, numVariables);
   
-  std::vector<double> lb(15);
-  lb[0] = 0.5;
-  double twoThirdsPi = (2.0/3.0)*boost::math::constants::pi<double>();
-  std::fill(lb.begin()+1, lb.begin()+6, -twoThirdsPi);
-  lb[6] = 0.5;
-  std::fill(lb.begin()+7, lb.begin()+12, -twoThirdsPi);
-  lb[12] = 0.0000001;
-  lb[13] = 0.0000001;
-  lb[14] = -100.0; // trying to make an order of magnitude or 2 greater than constraint values
-
-  std::vector<double> ub(15);
-  ub[0] = 1.0;
-  std::fill(ub.begin()+1, ub.begin()+6, twoThirdsPi);
-  ub[6] = 1.0;
-  std::fill(ub.begin()+7, ub.begin()+12, twoThirdsPi);
-  ub[12] = 0.0001;
-  ub[13] = 0.0001;
-  ub[14] = 100.0; // trying to make an order of magnitude or 2 greater than constraint values
-
+  std::vector<double> lb(numVariables);
+  std::vector<double> ub(numVariables);
+  problem.getBounds(&lb, &ub);
   opt.set_lower_bounds(lb);
   opt.set_upper_bounds(ub);
 
   opt.set_min_objective(&FeasiblePlanProblem::feasibleMinimaxObj, 0);
 
-  std::size_t numIneqConstraints = 3 + 13*taskFrames.size();
+  std::size_t numIneqConstraints = problem.getNumConstraints();
   std::vector<double> ineqTol(numIneqConstraints, 0.0000001);
   opt.add_inequality_mconstraint(&FeasiblePlanProblem::wrapIneq, 
                                  (void*) &problem,
@@ -300,83 +288,28 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   // Stop the optimization once we've found a point that satisfies the constraints (t <= 0)
   opt.set_stopval(0.0);
 
-  // Stop the optimization after 100 seconds have passed no matter what
+  // Stop the optimization after some seconds have passed no matter what
   opt.set_maxtime(1000.0);
 
-  // Use Jacobian IK to find a nice initial guess
-  // Place RCM's at middle of port curve
-  Eigen::Vector3d rcm = 0.5*(portCurvePoint1 + portCurvePoint2);
-  std::vector<double> qL(6, 0.0);
-  qL[0] = 0.5;
-  kin.passiveIK(baseFrameL, rcm, &qL);
-
-  std::cout << "Left IK done!" << std::endl; // debug
-  std::cout << "left error: " 
-            << (kin.passiveFK(baseFrameL, qL).topRightCorner<3,1>() - rcm).norm()
-            << std::endl;
-
-  std::vector<double> qR(6, 0.0);
-  qR[0] = 0.5;
-  kin.passiveIK(baseFrameR, rcm, &qR);
-
-  std::cout << "Right IK done!" << std::endl; // debug
-  std::cout << "right error: " 
-            << (kin.passiveFK(baseFrameR, qR).topRightCorner<3,1>() - rcm).norm()
-            << std::endl;
-
-  std::vector<double> x(15);
-  std::copy(qL.begin(), qL.end(), x.begin());
-  std::copy(qR.begin(), qR.end(), x.begin()+6);
-  x[12] = x[13] = 0.0000001;
-  x[14] = 90.0;
+  std::vector<double> x(numVariables);
+  problem.getInitialGuessIK(&x);
 
   // Output initial value, objective and constraint costs
-  std::cout << "x0:";
-  for (std::size_t i = 0; i < x.size(); ++i)
-    std::cout << " " << x[i];
-  std::cout << std::endl;
-
-  std::vector<double> dummy;
-  std::cout << "f(x0): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) &problem)  << std::endl;
-
-  double* c_ineq = new double[numIneqConstraints];
-  double x_array[15];
-  for (unsigned i = 0; i < 15; ++i)
-    x_array[i] = x[i];
-  FeasiblePlanProblem::wrapIneq(numIneqConstraints, c_ineq, 15, x_array, 0, (void*) &problem);
-  std::cout << "c_ineq(x0):";
-  for (unsigned i = 0; i < numIneqConstraints; ++i)
-    std::cout << " " << (c_ineq[i] + x[14]);
-  std::cout << std::endl;
+  std::cout << "================== x0 =================" << std::endl;
+  problem.outputStateProperties(std::cout, x);
 
   double minf;
   nlopt::result result = opt.optimize(x, minf);
-  std::cout << "result: " << result << std::endl;
 
-  std::cout << "f(x): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) &problem) << std::endl;
+  std::cout << "=================" << std::endl;
+  std::cout << "Result: " << result << std::endl;
+  std::cout << "=================" << std::endl;
 
-  for (unsigned i = 0; i < 15; ++i)
-    x_array[i] = x[i];
-  FeasiblePlanProblem::wrapIneq(numIneqConstraints, c_ineq, 15, x_array, 0, (void*) &problem);
-  std::cout << "c_ineq(x):";
-  for (unsigned i = 0; i < numIneqConstraints; ++i)
-    std::cout << " " << (c_ineq[i] + x[14]);
-  std::cout << std::endl;
+  std::cout << "================== x_opt ==============" << std::endl;
+  problem.outputStateProperties(std::cout, x);
 
-  std::cout << "x:";
-  for (unsigned i = 0; i < x.size(); ++i)
-    std::cout << " " << x[i];
-  std::cout << std::endl;
-
-  delete c_ineq;
-
-  for (unsigned i = 0; i < 6; ++i)
-    {
-    (*qL_out)[i] = x[i];
-    (*qR_out)[i] = x[i+6];
-    }
-  *spatialVariance = x[12];
-  *orientVariance = x[13];
+  std::copy(x.begin(), x.begin()+6, qL_out->begin());
+  std::copy(x.begin()+6, x.begin()+12, qR_out->begin());
 
   return true;
 }
@@ -393,42 +326,27 @@ void FeasiblePlanProblem::portConstraint(const Eigen::Matrix4d& baseFrame,
 
 void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
                                        const Eigen::Matrix4d& taskFrame,
-                                       double spatialVariance,
-                                       double orientVariance,
                                        std::vector<double>* c) const
 {
-  std::vector<double> mean_q;
-  Eigen::Matrix<double,6,6> covariance_q;
-  this->kin.unscentedIK(portFrame, taskFrame, 
-                        Eigen::Vector3d::Constant(spatialVariance), 
-                        Eigen::Vector3d::Constant(orientVariance),
-                        &mean_q, &covariance_q);
-
-  boost::math::normal n;
-  double quantile = boost::math::quantile(n, 1 - this->chanceConstraint);
+  std::vector<double> q(6);
+  this->kin.intraIK(portFrame, taskFrame, &q);
   for (unsigned i = 0; i < 6; ++i)
     {
-    double midpt = 0.5*(activeUpperBounds[i] - activeLowerBounds[i]);
-    (*c)[i] = fabs(mean_q[i] - midpt) + quantile*sqrt(covariance_q(i,i)) - midpt;
+    (*c)[2*i] = activeLowerBounds[i] - q[i];
+    (*c)[2*i+1] = q[i] - activeUpperBounds[i];
     }
 }
 
-void FeasiblePlanProblem::activeClearConstraint(const Eigen::Matrix4d& portFrameL,
-                                                const Eigen::Matrix4d& portFrameR,
+void FeasiblePlanProblem::activeClearConstraint(const std::vector<double>& qL,
+                                                const std::vector<double>& qR,
                                                 const Eigen::Matrix4d& taskFrame,
-                                                double spatialVariance,
-                                                double orientVariance,
-                                                double* c) const
+                                                std::vector<double>* c) const
 {
-  double mean_d, variance_d;
-  this->kin.unscentedClearance(portFrameL, portFrameR, taskFrame,
-                               Eigen::Vector3d::Constant(spatialVariance),
-                               Eigen::Vector3d::Constant(orientVariance),
-                               &mean_d, &variance_d);
-
-  boost::math::normal n;
-  double quantile = boost::math::quantile(n, 1 - this->chanceConstraint);
-  *c = quantile*sqrt(variance_d) - mean_d;
+  std::vector<double> dists;
+  this->kin.fullClearances(this->baseFrameL, this->baseFrameR, qL, qR, taskFrame, &dists);
+  for (std::size_t i = 0; i < dists.size(); ++i)
+    dists[i] = -dists[i]; // to make constraint in form of c(x) <= 0
+  c->swap(dists);
 }
 
 void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFrameL,
@@ -442,7 +360,8 @@ void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFram
   this->kin.getPassivePrimitives(baseFrameL, qL, &cL, &sL[0]);
   this->kin.getPassivePrimitives(baseFrameR, qR, &cR, &sR[0]);
   double d = Collisions::distance(cL, sL, cR, sR);
-  *c = exp(-d) - 1;
+  // *c = exp(-d) - 1;
+  *c = -d;
 }
 
 // inequality constraints:
@@ -459,10 +378,10 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
 { 
   FeasiblePlanProblem* problem = reinterpret_cast<FeasiblePlanProblem*>(data);
 
-  if (m != 3 + (problem->taskFrames.size())*13)
+  if (m != problem->getNumConstraints())
     throw std::runtime_error("wrapIneq Error: wrong number of constraints!");
 
-  if (n != 15)
+  if (n != problem->getNumVariables())
     throw std::runtime_error("wrapIneq Error: wrong number of variables!");
   
   std::vector<double> qL(&x[0], &x[6]);
@@ -477,40 +396,36 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
   problem->portConstraint(problem->baseFrameR, qR, &result[2]);
 
   // ik constraints
-  std::vector<double> c(6);
+  std::vector<double> c(6*2);
   Eigen::Matrix4d portFrameL = problem->kin.passiveFK(problem->baseFrameL, qL);
   Eigen::Matrix4d portFrameR = problem->kin.passiveFK(problem->baseFrameR, qR);
-  double spatialVariance = x[12];
-  double orientVariance = x[13];
   for (std::size_t k = 0; k < problem->taskFrames.size(); ++k)
     {
     problem->ikConstraint(portFrameL, 
                           problem->taskFrames[k], 
-                          spatialVariance,
-                          orientVariance,
                           &c);
-    for (unsigned i = 0; i < 6; ++i)
-      result[3+(k*12)+i] = c[i];
+    for (unsigned i = 0; i < 6*2; ++i)
+      result[3+(k*2*6*2)+i] = c[i];
 
     problem->ikConstraint(portFrameR,
                           problem->taskFrames[k],
-                          spatialVariance,
-                          orientVariance,
                           &c);
-    for (unsigned i = 0; i < 6; ++i)
-      result[3+(k*12)+i+6] = c[i];
+    for (unsigned i = 0; i < 6*2; ++i)
+      result[3+(k*2*6*2)+i+6*2] = c[i];
     }
 
   // active clearance constraints
   for (unsigned k = 0; k < problem->taskFrames.size(); ++k)
     {
-    problem->activeClearConstraint(portFrameL, portFrameR, problem->taskFrames[k],
-                                   spatialVariance, orientVariance,
-                                   &result[3+(problem->taskFrames.size()*12)+k]);
+    std::vector<double> c(57);
+    problem->activeClearConstraint(qL, qR, problem->taskFrames[k],
+                                   &c);
+    for (unsigned i = 0; i < 57; ++i)
+      result[3+(problem->taskFrames.size()*2*6*2) + 57*k + i] = c[i];
     }
 
   // make sure to subtract away t from all constraints
-  double t = x[14];
+  double t = x[12];
   for (unsigned i = 0; i < m; ++i)
     result[i] -= t;
 }
@@ -519,5 +434,116 @@ double FeasiblePlanProblem::feasibleMinimaxObj(const std::vector<double>& x,
                                                std::vector<double>& /*grad*/,
                                                void* /*data*/)
 {
-  return x[14];
+  return x[12];
+}
+
+void FeasiblePlanProblem::getBounds(std::vector<double>* lb, 
+                                    std::vector<double>* ub) const
+{
+  (*lb)[0] = 0.5;
+  double twoThirdsPi = (2.0/3.0)*boost::math::constants::pi<double>();
+  std::fill(lb->begin()+1, lb->begin()+6, -twoThirdsPi);
+  (*lb)[6] = 0.5;
+  std::fill(lb->begin()+7, lb->begin()+12, -twoThirdsPi);
+  (*lb)[12] = -100.0; // trying to make an order of magnitude or 2 greater than constraint values
+
+  (*ub)[0] = 1.0;
+  std::fill(ub->begin()+1, ub->begin()+6, twoThirdsPi);
+  (*ub)[6] = 1.0;
+  std::fill(ub->begin()+7, ub->begin()+12, twoThirdsPi);
+  (*ub)[12] = 100.0; // trying to make an order of magnitude or 2 greater than constraint values
+}
+
+void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
+{
+  // Use Jacobian IK to find a nice initial guess
+  // Place RCM's at middle of port curve
+  Eigen::Vector3d rcm = 0.5*(this->portCurvePoint1 + this->portCurvePoint2);
+  std::vector<double> qL(6, 0.0);
+  qL[0] = 0.5;
+  kin.passiveIK(this->baseFrameL, rcm, &qL);
+
+  // std::cout << "Left IK done!" << std::endl; // debug
+  // std::cout << "left error: " 
+  //           << (kin.passiveFK(baseFrameL, qL).topRightCorner<3,1>() - rcm).norm()
+  //           << std::endl;
+
+  std::vector<double> qR(6, 0.0);
+  qR[0] = 0.5;
+  kin.passiveIK(this->baseFrameR, rcm, &qR);
+
+  // std::cout << "Right IK done!" << std::endl; // debug
+  // std::cout << "right error: " 
+  //           << (kin.passiveFK(baseFrameR, qR).topRightCorner<3,1>() - rcm).norm()
+  //           << std::endl;
+
+
+  std::copy(qL.begin(), qL.end(), x->begin());
+  std::copy(qR.begin(), qR.end(), x->begin()+6);
+  (*x)[12] = 90.0;
+}
+
+void FeasiblePlanProblem::getInitialGuessExact(std::vector<double>* x) const
+{
+  (*x)[0] = 0.988914;
+  (*x)[1] = -0.058769;
+  (*x)[2] = -1.71274;
+  (*x)[3] = -0.270708;
+  (*x)[4] = -0.54294;
+  (*x)[5] = 1.15854;
+  (*x)[6] = 0.630289;
+  (*x)[7] = 1.91681;
+  (*x)[8] = 1.15106;
+  (*x)[9] = -1.00725;
+  (*x)[10] = 0.290322;
+  (*x)[11] = 2.01327;
+  (*x)[12] = -1.08085e-06;         
+}
+
+void FeasiblePlanProblem::outputStateProperties(std::ostream& out, 
+                                                const std::vector<double>& x) const
+{
+  out << "x:";
+  for (std::size_t i = 0; i < x.size(); ++i)
+    out << " " << x[i];
+  out << std::endl;
+
+  std::vector<double> dummy;
+  out << "f(x): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) this)  << std::endl;
+
+  double* c_ineq = new double[this->getNumConstraints()];
+  double x_array[this->getNumVariables()];
+  for (unsigned i = 0; i < this->getNumVariables(); ++i)
+    x_array[i] = x[i];
+  FeasiblePlanProblem::wrapIneq(this->getNumConstraints(), c_ineq, this->getNumVariables(), x_array, 0, (void*) this);
+  out << "c_ineq(x):";
+  for (unsigned i = 0; i < this->getNumConstraints(); ++i)
+    out << " " << (c_ineq[i] + x[12]);
+  out << std::endl;
+
+  std::vector<double> qpL(x.begin(), x.begin()+6);
+  std::vector<double> qpR(x.begin()+6, x.begin()+12);
+  std::vector<double> qaL(6);
+  std::vector<double> qaR(6);
+  this->kin.intraIK(this->kin.passiveFK(this->baseFrameL, qpL), this->taskFrames[0], &qaL);
+  this->kin.intraIK(this->kin.passiveFK(this->baseFrameR, qpR), this->taskFrames[0], &qaR);
+  out << "aL:";
+  for (unsigned i = 0; i < 6; ++i)
+    out << " " << qaL[i];
+  out << std::endl << "aR:";
+  for (unsigned i = 0; i < 6; ++i)
+    out << " " << qaR[i];
+  out << std::endl;
+
+  delete c_ineq;
+}
+
+unsigned FeasiblePlanProblem::getNumVariables() const
+{
+  return 13;
+}
+
+unsigned FeasiblePlanProblem::getNumConstraints() const
+{
+  return 3 + (24+57)*taskFrames.size();
 }

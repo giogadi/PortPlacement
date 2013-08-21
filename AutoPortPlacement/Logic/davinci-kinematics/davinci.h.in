@@ -86,6 +86,13 @@ public:
                             std::vector<Collisions::Cylisphere>* cylispheres,
                             Collisions::Sphere* sphere) const;
 
+  double fullClearances(const Eigen::Matrix4d& baseFrameL,
+                        const Eigen::Matrix4d& baseFrameR,
+                        const std::vector<double>& qL,
+                        const std::vector<double>& qR,
+                        const Eigen::Matrix4d& targetPose,
+                        std::vector<double>* dists) const;
+
   DavinciParameters getParams() const;
 
   void unscentedIK(const Eigen::Matrix4d& portFrame,

@@ -32,8 +32,10 @@ int main(int argc, char* argv[])
   s.r = 1.0;
   s2.push_back(s);
 
-  double dist = Collisions::distance(c1,s1,c2,s2);
+  std::vector<double> dists;
+  double dist = Collisions::distances(c1,s1,c2,s2, &dists);
   std::cout << dist << std::endl;
+  std::cout << "num dists: " << dists.size() << std::endl;
 
   if (fabs(dist - 1.0) < 0.0000001)
     return 0;

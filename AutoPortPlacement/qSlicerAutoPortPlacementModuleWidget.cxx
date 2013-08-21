@@ -89,11 +89,14 @@ void qSlicerAutoPortPlacementModuleWidget::onPushButtonClicked()
     // double qpR[] = {0.5, -0.65189, -0.159904, -1.83959, -2.12555, -0.53937};
     // double qpL[] = {0.720047, 0.305642, -1.63768, -0.904206, 0.139015, 0.52326};
     // double qpR[] = {0.626428, 2.09413, 1.42472, -1.91036, 0.286686, 1.22844};
-    double qpL[] = {0.5, -0.65, -0.72, -0.62, 0.0, 0.32};
-    double qpR[] = {0.5, 0.65, 0.72, 0.62, 0.0, -0.32};
-    double qa[] = {0, 0, 0, 0, 0, 0};
+    // double qpL[] = {0.5, -0.65, -0.72, -0.62, 0.0, 0.32};
+    // double qpR[] = {0.5, 0.65, 0.72, 0.62, 0.0, -0.32};
+    double qpL[] = {0.516985, -0.206878, -0.687522, -1.53992, 0.909711, 0.734997};
+    double qpR[] = {0.819416, 1.94274, 1.21822, -1.82053, -0.141514, 1.31253};
+    double qaL[] = {0.576729, 0.424123, 0.186331, 0.206465, -0.997691, 0.000397487};
+    double qaR[] = {0.00597638, -0.905269, 0.0488126, 0.222353, 1.04269, 0.000207434};
 
-    portLogic->AddDavinciPrimitives(*T1->GetMatrix(), qpL, qa);
-    portLogic->AddDavinciPrimitives(*T2->GetMatrix(), qpR, qa);
+    portLogic->AddDavinciPrimitives(*T1->GetMatrix(), qpL, qaL);
+    portLogic->AddDavinciPrimitives(*T2->GetMatrix(), qpR, qaR);
     }
 }
