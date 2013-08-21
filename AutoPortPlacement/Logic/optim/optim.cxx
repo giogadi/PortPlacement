@@ -301,7 +301,7 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   opt.set_stopval(0.0);
 
   // Stop the optimization after 100 seconds have passed no matter what
-  opt.set_maxtime(100.0);
+  opt.set_maxtime(1000.0);
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at middle of port curve
@@ -330,7 +330,12 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   x[12] = x[13] = 0.0000001;
   x[14] = 90.0;
 
-  // Output initial objective and constraint costs
+  // Output initial value, objective and constraint costs
+  std::cout << "x0:";
+  for (std::size_t i = 0; i < x.size(); ++i)
+    std::cout << " " << x[i];
+  std::cout << std::endl;
+
   std::vector<double> dummy;
   std::cout << "f(x0): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) &problem)  << std::endl;
 
@@ -442,6 +447,7 @@ void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFram
 
 // inequality constraints:
 // 1 passive clear constraint
+// 2 port constraints
 // k*6*2 ik constraints
 // k*1 active clear constraints
 void FeasiblePlanProblem::wrapIneq(unsigned int m,
