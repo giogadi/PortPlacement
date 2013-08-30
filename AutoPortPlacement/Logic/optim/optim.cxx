@@ -433,11 +433,11 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
   // active clearance constraints
   for (unsigned k = 0; k < problem->taskFrames.size(); ++k)
     {
-    std::vector<double> c(57);
+    std::vector<double> c(problem->kin.numActiveClearances());
     problem->activeClearConstraint(qL, qR, problem->taskFrames[k],
                                    &c);
-    for (unsigned i = 0; i < 57; ++i)
-      result[3+(problem->taskFrames.size()*2*6*2) + 57*k + i] = c[i];
+    for (unsigned i = 0; i < c.size(); ++i)
+      result[3+(problem->taskFrames.size()*2*6*2) + c.size()*k + i] = c[i];
     }
 
   // make sure to subtract away t from all constraints
@@ -564,5 +564,5 @@ unsigned FeasiblePlanProblem::getNumVariables() const
 
 unsigned FeasiblePlanProblem::getNumConstraints() const
 {
-  return 3 + (24+57)*taskFrames.size();
+  return 3 + (24+kin.numActiveClearances())*taskFrames.size();
 }

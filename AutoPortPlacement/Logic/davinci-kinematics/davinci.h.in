@@ -93,6 +93,8 @@ public:
                         const Eigen::Matrix4d& targetPose,
                         std::vector<double>* dists) const;
 
+  unsigned numActiveClearances() const;
+
   DavinciParameters getParams() const;
 
   void unscentedIK(const Eigen::Matrix4d& portFrame,

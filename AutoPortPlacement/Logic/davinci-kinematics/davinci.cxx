@@ -594,6 +594,11 @@ double DavinciKinematics::fullClearances(const Eigen::Matrix4d& baseFrameL,
   return std::min(d1,d2);
 }
 
+unsigned DavinciKinematics::numActiveClearances() const
+{
+  return 57; // TODO figure out how to do this programmatically
+}
+
 // \TODO for efficiency compute unscented IK and unscented clearance
 // at the same time
 void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& portFrameL,
