@@ -8,6 +8,8 @@
 
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/constants/constants.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_01.hpp>
 
 namespace
 {
@@ -239,8 +241,8 @@ namespace
 
   const double activeLowerBounds[] = {-boost::math::constants::pi<double>()/3,
                                       -boost::math::constants::pi<double>()/3,
-                                      0.0,
                                       -boost::math::constants::pi<double>(),
+                                      0.0,
                                       -boost::math::constants::pi<double>()/2,
                                       -boost::math::constants::pi<double>()/2};
 
@@ -249,10 +251,24 @@ namespace
   // actually pi/4, which is strange and should be checked up on.
   const double  activeUpperBounds[] = {boost::math::constants::pi<double>()/3,
                                        boost::math::constants::pi<double>()/3,
-                                       0.2,
                                        boost::math::constants::pi<double>(),
+                                       0.2,
                                        boost::math::constants::pi<double>()/2,
                                        boost::math::constants::pi<double>()/2};
+
+  const double passiveLowerBounds[] = {0.5,
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>()};
+
+  const double passiveUpperBounds[] = {1.0,
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>()};
 }
 
 bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
@@ -269,7 +285,7 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
 
   const unsigned numVariables = problem.getNumVariables();
 
-  nlopt::opt opt(nlopt::GN_ISRES, numVariables);
+  nlopt::opt opt(nlopt::LN_COBYLA, numVariables);
   
   std::vector<double> lb(numVariables);
   std::vector<double> ub(numVariables);
@@ -286,10 +302,10 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
                                  ineqTol);
 
   // Stop the optimization once we've found a point that satisfies the constraints (t <= 0)
-  opt.set_stopval(0.0);
+  // opt.set_stopval(0.0);
 
   // Stop the optimization after some seconds have passed no matter what
-  opt.set_maxtime(1000.0);
+  opt.set_maxtime(100.0);
 
   std::vector<double> x(numVariables);
   problem.getInitialGuessIK(&x);
@@ -440,42 +456,45 @@ double FeasiblePlanProblem::feasibleMinimaxObj(const std::vector<double>& x,
 void FeasiblePlanProblem::getBounds(std::vector<double>* lb, 
                                     std::vector<double>* ub) const
 {
-  (*lb)[0] = 0.5;
-  double twoThirdsPi = (2.0/3.0)*boost::math::constants::pi<double>();
-  std::fill(lb->begin()+1, lb->begin()+6, -twoThirdsPi);
-  (*lb)[6] = 0.5;
-  std::fill(lb->begin()+7, lb->begin()+12, -twoThirdsPi);
+  for (unsigned i = 0; i < 6; ++i)
+    {
+    (*lb)[i] = (*lb)[6+i] = passiveLowerBounds[i];
+    (*ub)[i] = (*ub)[6+i] = passiveUpperBounds[i];
+    }
   (*lb)[12] = -100.0; // trying to make an order of magnitude or 2 greater than constraint values
-
-  (*ub)[0] = 1.0;
-  std::fill(ub->begin()+1, ub->begin()+6, twoThirdsPi);
-  (*ub)[6] = 1.0;
-  std::fill(ub->begin()+7, ub->begin()+12, twoThirdsPi);
   (*ub)[12] = 100.0; // trying to make an order of magnitude or 2 greater than constraint values
 }
 
 void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
 {
+  boost::mt19937 rng(2);
+  boost::uniform_01<> uniDist;
+
   // Use Jacobian IK to find a nice initial guess
-  // Place RCM's at middle of port curve
-  Eigen::Vector3d rcm = 0.5*(this->portCurvePoint1 + this->portCurvePoint2);
-  std::vector<double> qL(6, 0.0);
-  qL[0] = 0.5;
-  kin.passiveIK(this->baseFrameL, rcm, &qL);
+  // Place RCM's at some points on port curve
+  double curveParamL = 0.5;
+  double curveParamR = 0.5;
+  Eigen::Vector3d rcmL = 
+    this->portCurvePoint1 + curveParamL*(this->portCurvePoint2 - this->portCurvePoint1);
+  Eigen::Vector3d rcmR = 
+    this->portCurvePoint1 + curveParamR*(this->portCurvePoint2 - this->portCurvePoint1);
+  std::vector<double> qL(6), qR(6);
+  for (unsigned i = 0; i < 6; ++i)
+    {
+    qL[i] = passiveLowerBounds[i] + uniDist(rng)*(passiveUpperBounds[i] - passiveLowerBounds[i]);
+    qR[i] = passiveLowerBounds[i] + uniDist(rng)*(passiveUpperBounds[i] - passiveLowerBounds[i]);
+    }
+  kin.passiveIK(this->baseFrameL, rcmL, &qL);
+  std::cout << "Left IK done!" << std::endl; // debug
+  std::cout << "left error: " 
+            << (kin.passiveFK(baseFrameL, qL).topRightCorner<3,1>() - rcmL).norm()
+            << std::endl;
 
-  // std::cout << "Left IK done!" << std::endl; // debug
-  // std::cout << "left error: " 
-  //           << (kin.passiveFK(baseFrameL, qL).topRightCorner<3,1>() - rcm).norm()
-  //           << std::endl;
-
-  std::vector<double> qR(6, 0.0);
-  qR[0] = 0.5;
-  kin.passiveIK(this->baseFrameR, rcm, &qR);
-
-  // std::cout << "Right IK done!" << std::endl; // debug
-  // std::cout << "right error: " 
-  //           << (kin.passiveFK(baseFrameR, qR).topRightCorner<3,1>() - rcm).norm()
-  //           << std::endl;
+  kin.passiveIK(this->baseFrameR, rcmR, &qR);
+  std::cout << "Right IK done!" << std::endl; // debug
+  std::cout << "right error: " 
+            << (kin.passiveFK(baseFrameR, qR).topRightCorner<3,1>() - rcmR).norm()
+            << std::endl;
 
 
   std::copy(qL.begin(), qL.end(), x->begin());
