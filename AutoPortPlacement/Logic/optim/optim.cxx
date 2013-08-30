@@ -344,25 +344,43 @@ void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
                                        const Eigen::Matrix4d& taskFrame,
                                        std::vector<double>* c) const
 {
-  std::vector<double> q(6);
-  this->kin.intraIK(portFrame, taskFrame, &q);
+  std::vector<double> mean_q;
+  std::vector<double> cov_q;
+  const double POSITION_VARIANCE = 1e-6;
+  const double ORIENTATION_VARIANCE = 1e-6;
+  const double CHANCE_CONSTRAINT = 0.05;
+  boost::math::normal n;
+  double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
+  this->kin.unscentedIK(portFrame, taskFrame, 
+                        Eigen::Vector3d::Constant(POSITION_VARIANCE), 
+                        Eigen::Vector3d::Constant(ORIENTATION_VARIANCE),
+                        &mean_q, &cov_q);
   for (unsigned i = 0; i < 6; ++i)
     {
-    (*c)[2*i] = activeLowerBounds[i] - q[i];
-    (*c)[2*i+1] = q[i] - activeUpperBounds[i];
+    double midpt = 0.5*(activeUpperBounds[i] - activeLowerBounds[i]);
+    (*c)[i] = fabs(mean_q[i] - midpt) + quantile*sqrt(cov_q[i]) - midpt;
     }
 }
 
-void FeasiblePlanProblem::activeClearConstraint(const std::vector<double>& qL,
-                                                const std::vector<double>& qR,
+void FeasiblePlanProblem::activeClearConstraint(const std::vector<double>& qpL,
+                                                const std::vector<double>& qpR,
                                                 const Eigen::Matrix4d& taskFrame,
                                                 std::vector<double>* c) const
 {
-  std::vector<double> dists;
-  this->kin.fullClearances(this->baseFrameL, this->baseFrameR, qL, qR, taskFrame, &dists);
-  for (std::size_t i = 0; i < dists.size(); ++i)
-    dists[i] = -dists[i]; // to make constraint in form of c(x) <= 0
-  c->swap(dists);
+  const double POSITION_VARIANCE = 1e-6;
+  const double ORIENTATION_VARIANCE = 1e-6;
+  const double CHANCE_CONSTRAINT = 0.05;
+  boost::math::normal n;
+  double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
+  std::vector<double> mean_c, cov_c;
+  this->kin.unscentedClearance(this->baseFrameL, this->baseFrameR, qpL, qpR, taskFrame, 
+                               Eigen::Vector3d::Constant(POSITION_VARIANCE), 
+                               Eigen::Vector3d::Constant(ORIENTATION_VARIANCE),
+                               &mean_c, &cov_c);
+  for (unsigned i = 0; i < this->kin.numActiveClearances(); ++i)
+    {
+    (*c)[i] = quantile*sqrt(cov_c[i]) - mean_c[i];
+    }
 }
 
 void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFrameL,
@@ -412,7 +430,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
   problem->portConstraint(problem->baseFrameR, qR, &result[2]);
 
   // ik constraints
-  std::vector<double> c(6*2);
+  std::vector<double> c(6);
   Eigen::Matrix4d portFrameL = problem->kin.passiveFK(problem->baseFrameL, qL);
   Eigen::Matrix4d portFrameR = problem->kin.passiveFK(problem->baseFrameR, qR);
   for (std::size_t k = 0; k < problem->taskFrames.size(); ++k)
@@ -420,14 +438,14 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
     problem->ikConstraint(portFrameL, 
                           problem->taskFrames[k], 
                           &c);
-    for (unsigned i = 0; i < 6*2; ++i)
-      result[3+(k*2*6*2)+i] = c[i];
+    for (unsigned i = 0; i < 6; ++i)
+      result[3+(k*2*6)+i] = c[i];
 
     problem->ikConstraint(portFrameR,
                           problem->taskFrames[k],
                           &c);
-    for (unsigned i = 0; i < 6*2; ++i)
-      result[3+(k*2*6*2)+i+6*2] = c[i];
+    for (unsigned i = 0; i < 6; ++i)
+      result[3+(k*2*6)+i+6] = c[i];
     }
 
   // active clearance constraints
@@ -437,7 +455,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
     problem->activeClearConstraint(qL, qR, problem->taskFrames[k],
                                    &c);
     for (unsigned i = 0; i < c.size(); ++i)
-      result[3+(problem->taskFrames.size()*2*6*2) + c.size()*k + i] = c[i];
+      result[3+(problem->taskFrames.size()*2*6) + c.size()*k + i] = c[i];
     }
 
   // make sure to subtract away t from all constraints
@@ -472,8 +490,10 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at some points on port curve
-  double curveParamL = 0.5;
-  double curveParamR = 0.5;
+  // double curveParamL = 0.5;
+  // double curveParamR = 0.5;
+  double curveParamL = uniDist(rng);
+  double curveParamR = uniDist(rng);
   Eigen::Vector3d rcmL = 
     this->portCurvePoint1 + curveParamL*(this->portCurvePoint2 - this->portCurvePoint1);
   Eigen::Vector3d rcmR = 
@@ -564,5 +584,5 @@ unsigned FeasiblePlanProblem::getNumVariables() const
 
 unsigned FeasiblePlanProblem::getNumConstraints() const
 {
-  return 3 + (24+kin.numActiveClearances())*taskFrames.size();
+  return 3 + (12+kin.numActiveClearances())*taskFrames.size();
 }

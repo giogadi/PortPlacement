@@ -459,7 +459,7 @@ void DavinciKinematics::unscentedIK(const Eigen::Matrix4d& portFrame,
                                     const Eigen::Vector3d& positionVariance,
                                     const Eigen::Vector3d& orientVariance,
                                     std::vector<double>* mean_qOut,
-                                    Eigen::Matrix<double,6,6>* covariance_qOut) const
+                                    std::vector<double>* covariance_qOut) const
 {
   Eigen::Matrix4d targetPose = meanTargetPose;
   std::vector<std::vector<double> > sigmaPoints;
@@ -514,27 +514,24 @@ void DavinciKinematics::unscentedIK(const Eigen::Matrix4d& portFrame,
   // get moments of transformed sigma points
   std::vector<double> mean_q(6, 0.0);
   for (unsigned i = 0; i < 12; ++i)
-  {
+    {
     for (unsigned j = 0; j < 6; ++j)
       mean_q[j] += sigmaPoints[i][j];
-  }
+    }
   for (unsigned i = 0; i < 6; ++i)
     mean_q[i] /= 12.0;
 
-  Eigen::Matrix<double,6,6> covariance_q = Eigen::Matrix<double,6,6>::Zero();
+  std::vector<double> covariance_q(6, 0.0);
   for (unsigned i = 0; i < 6; ++i)
-  {
-    for (unsigned j = 0; j < 6; ++j)
     {
-      for (unsigned k = 0; k < 12; ++k)
-        covariance_q(i,j) += (sigmaPoints[k][i] - mean_q[i])*(sigmaPoints[k][j] - mean_q[j]);
-      covariance_q(i,j) /= (12 - 1);
+    for (unsigned k = 0; k < 12; ++k)
+      covariance_q[i] += (sigmaPoints[k][i] - mean_q[i])*(sigmaPoints[k][i] - mean_q[i]);
+    covariance_q[i] /= (12 - 1);
     }
-  }
 
   // populate out-parameters
   mean_qOut->swap(mean_q);
-  (*covariance_qOut) = covariance_q;
+  covariance_qOut->swap(covariance_q);
 }
 
 namespace
@@ -601,70 +598,92 @@ unsigned DavinciKinematics::numActiveClearances() const
 
 // \TODO for efficiency compute unscented IK and unscented clearance
 // at the same time
-void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& portFrameL,
-                                           const Eigen::Matrix4d& portFrameR,
+void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& baseFrameL,
+                                           const Eigen::Matrix4d& baseFrameR,
+                                           const std::vector<double>& qpL,
+                                           const std::vector<double>& qpR,
                                            const Eigen::Matrix4d& meanTargetPose,
                                            const Eigen::Vector3d& positionVariance,
                                            const Eigen::Vector3d& orientVariance,
-                                           double* mean_clearanceOut,
-                                           double* covariance_clearanceOut) const
+                                           std::vector<double>* mean_clearanceOut,
+                                           std::vector<double>* cov_clearanceOut) const
 {
   Eigen::Matrix4d targetPose = meanTargetPose;
-  std::vector<double> sigmaPoints;
-  std::vector<double> qL(6);
-  std::vector<double> qR(6);
-  std::vector<Collisions::Cylisphere> cylL, cylR;
-  std::vector<Collisions::Sphere> sL, sR;
+  std::vector< std::vector<double> > sigmaPoints;
+  std::vector<double> c;
 
   // Perturb translation elements
   for (unsigned i = 0; i < 3; ++i)
     {
     double delta = sqrt(2*positionVariance(i));
-    targetPose(i,3) += delta;    
-    sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+    targetPose(i,3) += delta;
+    c.clear();
+    this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+    sigmaPoints.push_back(c);
 
     targetPose(i,3) -= 2*delta;
-    sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+    c.clear();
+    this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+    sigmaPoints.push_back(c);
     }
   
   // Perturb orientation elements
   double delta = sqrt(2*orientVariance(0));    
   Eigen::Matrix4d R = xRotation(delta);
   targetPose.noalias() = R*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
 
   targetPose.noalias() = R.transpose()*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
 
   delta = sqrt(2*orientVariance(1));
   R = yRotation(delta);
   targetPose.noalias() = R*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
 
   targetPose.noalias() = R.transpose()*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
 
   delta = sqrt(2*orientVariance(2));
   R = zRotation(delta);
   targetPose.noalias() = R*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
 
   targetPose.noalias() = R.transpose()*meanTargetPose;
-  sigmaPoints.push_back(fromPoseToExtraClearance(*this, portFrameL, portFrameR, targetPose));
+  c.clear();
+  this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
+  sigmaPoints.push_back(c);
   // end orientation perturbations
-  
-  // get moments of transformed sigma points
-  double mean_clearance = 0.0;
-  for (unsigned i = 0; i < 12; ++i)
-    mean_clearance += sigmaPoints[i];
-  mean_clearance /= 12.0;
 
-  double covariance_clearance = 0.0;
+  // get moments of transformed sigma points
+  std::vector<double> mean_clearance(this->numActiveClearances(), 0.0);
   for (unsigned i = 0; i < 12; ++i)
-    covariance_clearance += (sigmaPoints[i] - mean_clearance)*(sigmaPoints[i] - mean_clearance);
-  covariance_clearance /= (12 - 1);
+    {
+    for (unsigned j = 0; j < this->numActiveClearances(); ++j)
+      mean_clearance[j] += sigmaPoints[i][j];
+    }
+  for (unsigned i = 0; i < this->numActiveClearances(); ++i)
+    mean_clearance[i] /= 12.0;
+
+  std::vector<double> cov_clearance(this->numActiveClearances(), 0.0);
+  for (unsigned i = 0; i < this->numActiveClearances(); ++i)
+    {
+    for (unsigned k = 0; k < 12; ++k)
+      cov_clearance[i] += (sigmaPoints[k][i] - mean_clearance[i])*(sigmaPoints[k][i] - mean_clearance[i]);
+    cov_clearance[i] /= (12 - 1);
+    }
 
   // populate out-parameters
-  *mean_clearanceOut = mean_clearance;
-  *covariance_clearanceOut = covariance_clearance;
+  mean_clearanceOut->swap(mean_clearance);
+  cov_clearanceOut->swap(cov_clearance);
 }
