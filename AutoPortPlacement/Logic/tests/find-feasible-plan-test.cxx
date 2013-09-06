@@ -38,19 +38,13 @@ int main()
   Eigen::Vector3d portCurvePoint2 = frame.topRightCorner<3,1>();
   portCurvePoint2(2) += 0.12;
   portCurvePoint2(0) += 0.2;
-
-  // Set our chance constraint to correspond to a 90% likelihood
-  double chanceConstraint = 1 - 0.9;
   
   // Give 'er a go!
   std::vector<double> qL(6);
   std::vector<double> qR(6);
-  double spatialVariance;
-  double orientVariance;
   Optim::findFeasiblePlan(kinematics, baseFrameL, baseFrameR, taskFrames,
                           portCurvePoint1, portCurvePoint2,
-                          chanceConstraint,
-                          &qL, &qR, &spatialVariance, &orientVariance);
+                          &qL, &qR);
 
   return 0;
 }

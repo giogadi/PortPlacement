@@ -26,11 +26,8 @@ namespace Optim
                         const Matrix4dVec& taskFrames,
                         const Eigen::Vector3d& portCurvePoint1,
                         const Eigen::Vector3d& portCurvePoint2,
-                        double chanceConstraint,
                         std::vector<double>* qL,
-                        std::vector<double>* qR,
-                        double* spatialVariance,
-                        double* orientVariance);
+                        std::vector<double>* qR);
 };
 
 #endif

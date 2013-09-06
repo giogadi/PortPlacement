@@ -123,7 +123,16 @@ double Collisions::distance(const std::vector<Cylisphere>& c1,
                             const std::vector<Cylisphere>& c2,
                             const std::vector<Sphere>& s2)
 {
-  double minDistance = std::numeric_limits<double>::infinity();
+  return distances(c1, s1, c2, s2, 0);
+}
+
+double Collisions::distances(const std::vector<Cylisphere>& c1,
+                             const std::vector<Sphere>& s1,
+                             const std::vector<Cylisphere>& c2,
+                             const std::vector<Sphere>& s2,
+                             std::vector<double>* d)
+{
+ double minDistance = std::numeric_limits<double>::infinity();
   
   // Compute distances of all cylispheres in c1 against all
   // cylispheres in c1 and spheres in c2
@@ -135,13 +144,19 @@ double Collisions::distance(const std::vector<Cylisphere>& c1,
          c2iter != c2.end();
          ++c2iter)
       {
-      minDistance = std::min(minDistance, distance(*c1iter, *c2iter));
+      double dist = distance(*c1iter, *c2iter);
+      minDistance = std::min(minDistance, dist);
+      if (d)
+        d->push_back(dist);
       }
     for (std::vector<Sphere>::const_iterator s2iter = s2.begin();
          s2iter != s2.end();
          ++s2iter)
       {
-      minDistance = std::min(minDistance, distance(*c1iter, *s2iter));
+      double dist = distance(*c1iter, *s2iter);
+      minDistance = std::min(minDistance, dist);
+      if (d)
+        d->push_back(dist);
       }
     }
 
@@ -153,13 +168,19 @@ double Collisions::distance(const std::vector<Cylisphere>& c1,
          c2iter != c2.end();
          ++c2iter)
       {
-      minDistance = std::min(minDistance, distance(*c2iter, *s1iter));
+      double dist = distance(*c2iter, *s1iter);
+      minDistance = std::min(minDistance, dist);
+      if (d)
+        d->push_back(dist);
       }
     for (std::vector<Sphere>::const_iterator s2iter = s2.begin();
          s2iter != s2.end();
          ++s2iter)
       {
-      minDistance = std::min(minDistance, distance(*s1iter, *s2iter));
+      double dist = distance(*s1iter, *s2iter);
+      minDistance = std::min(minDistance, dist);
+      if (d)
+        d->push_back(dist);
       }
     }
 

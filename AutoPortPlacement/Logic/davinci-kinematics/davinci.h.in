@@ -86,6 +86,15 @@ public:
                             std::vector<Collisions::Cylisphere>* cylispheres,
                             Collisions::Sphere* sphere) const;
 
+  double fullClearances(const Eigen::Matrix4d& baseFrameL,
+                        const Eigen::Matrix4d& baseFrameR,
+                        const std::vector<double>& qL,
+                        const std::vector<double>& qR,
+                        const Eigen::Matrix4d& targetPose,
+                        std::vector<double>* dists) const;
+
+  unsigned numActiveClearances() const;
+
   DavinciParameters getParams() const;
 
   void unscentedIK(const Eigen::Matrix4d& portFrame,
@@ -93,15 +102,17 @@ public:
                    const Eigen::Vector3d& positionVariance,
                    const Eigen::Vector3d& orientVariance,
                    std::vector<double>* mean_qOut,
-                   Eigen::Matrix<double,6,6>* covariance_qOut) const;
+                   std::vector<double>* covariance_qOut) const;
 
-  void unscentedClearance(const Eigen::Matrix4d& portFrameL,
-                          const Eigen::Matrix4d& portFrameR,
+  void unscentedClearance(const Eigen::Matrix4d& baseFrameL,
+                          const Eigen::Matrix4d& baseFrameR,
+                          const std::vector<double>& qpL,
+                          const std::vector<double>& qpR,
                           const Eigen::Matrix4d& meanTargetPose,
                           const Eigen::Vector3d& positionVariance,
                           const Eigen::Vector3d& orientVariance,
-                          double* mean_clearance,
-                          double* cov_clearance) const;
+                          std::vector<double>* mean_clearance,
+                          std::vector<double>* cov_clearance) const;
 
 private:
   DavinciParameters params_;
