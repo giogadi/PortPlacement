@@ -10,7 +10,7 @@ int main()
 
   Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
 
-  // Let's just add one task frame for now
+  // Let's add two task frames for now
   Optim::Matrix4dVec taskFrames;
   Eigen::Matrix4d frame = Eigen::Matrix4d::Identity();
 
@@ -28,6 +28,12 @@ int main()
   frame(1,3) = 0.8;
   frame(2,3) = 0.7;
 
+  taskFrames.push_back(frame);
+
+  frame(0,3) = 0.0;
+  frame(1,3) = 0.81;
+  frame(2,3) = 0.71;
+  
   taskFrames.push_back(frame);
 
   // Set line segment of feasible port locations
