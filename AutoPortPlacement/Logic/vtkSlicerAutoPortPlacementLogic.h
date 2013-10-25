@@ -32,7 +32,7 @@
 // VTK includes
 #include <vtkCylinderSource.h>
 #include <vtkSphereSource.h>
-#include <vtkMatrix4x4.h>
+#include <vtkMRMLLinearTransformNode.h>
 
 // STD includes
 #include <cstdlib>
@@ -53,9 +53,16 @@ public:
   vtkTypeMacro(vtkSlicerAutoPortPlacementLogic, vtkSlicerModuleLogic);
   void PrintSelf(ostream& os, vtkIndent indent);
 
-  void AddDavinciPrimitives(const vtkMatrix4x4& baseFrame,
-                            const double* q_passive,
-                            const double* q_active);
+  void SetPassiveLeftJoint(unsigned jointIdx, double value);
+  void SetPassiveRightJoint(unsigned jointIdx, double value);
+
+  double GetPassiveLeftJoint(unsigned jointIdx) const;
+  double GetPassiveRightJoint(unsigned jointIdx) const;
+
+  double GetPassiveJointMin(unsigned idx) const;
+  double GetPassiveJointMax(unsigned idx) const;
+
+  void RenderRobot();
 
 protected:
   vtkSlicerAutoPortPlacementLogic();
@@ -76,7 +83,34 @@ private:
 
   /// For rendering the collision primitives of the davinci
   vtkSmartPointer<vtkCylinderSource> CylinderSource;
-  vtkSmartPointer<vtkSphereSource> SphereSource;  
+  vtkSmartPointer<vtkSphereSource> SphereSource;
+
+  double RobotBaseX;
+  double RobotBaseY;
+
+  std::vector<double> LeftPassiveConfig;
+  std::vector<double> RightPassiveConfig;
+  std::vector<double> LeftActiveConfig;
+  std::vector<double> RightActiveConfig;
+
+  bool IsRobotInitialized;
+
+  // vtkTransform BaseFrame;
+
+  // class RobotNode
+  // {
+  // public:
+  //   std::vector<vtkSmartPointer<vtkMRMLModelNode> > ModelNodes;
+  //   std::vector<vtkSmartPointer<vtkPolyData> > PolyDataNodes;
+  //   std::vector<vtkSmartPointer<vtkMRMLModelDisplayNode > DisplayNodes;
+  //   std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > TransformNodes;
+  // }
+  
+  // RobotNode DavinciNode;
+  std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > RobotTransformNodes;
+
+  void InitRobot();
+  void UpdateRobot();
 };
 
 #endif

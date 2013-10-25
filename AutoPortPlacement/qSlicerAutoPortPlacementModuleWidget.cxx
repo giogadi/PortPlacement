@@ -34,13 +34,17 @@ class qSlicerAutoPortPlacementModuleWidgetPrivate: public Ui_qSlicerAutoPortPlac
 {
 public:
   qSlicerAutoPortPlacementModuleWidgetPrivate();
+  int CurrentLeftPassiveIdx;
+  int CurrentRightPassiveIdx;
 };
 
 //-----------------------------------------------------------------------------
 // qSlicerAutoPortPlacementModuleWidgetPrivate methods
 
 //-----------------------------------------------------------------------------
-qSlicerAutoPortPlacementModuleWidgetPrivate::qSlicerAutoPortPlacementModuleWidgetPrivate()
+qSlicerAutoPortPlacementModuleWidgetPrivate::qSlicerAutoPortPlacementModuleWidgetPrivate() :
+  CurrentLeftPassiveIdx(0),
+  CurrentRightPassiveIdx(0)
 {
 }
 
@@ -66,48 +70,82 @@ void qSlicerAutoPortPlacementModuleWidget::setup()
   d->setupUi(this);  
 
   this->Superclass::setup();
-}
 
-void qSlicerAutoPortPlacementModuleWidget::onPushButtonClicked()
-{
-  if (this->logic() == 0)
-    {
-    return;
-    }
+  d->LeftPassiveSlider->setSingleStep(0.001);
+  d->RightPassiveSlider->setSingleStep(0.001);
+
+  d->LeftPassiveConfigCombo->setCurrentIndex(d->CurrentLeftPassiveIdx);
+  d->RightPassiveConfigCombo->setCurrentIndex(d->CurrentRightPassiveIdx);
+
   vtkSlicerAutoPortPlacementLogic *portLogic = 
     vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
-  if (portLogic)
-    {
-    vtkSmartPointer<vtkTransform> T1 = vtkSmartPointer<vtkTransform>::New();
-    T1->RotateZ(180.0);
 
-    vtkSmartPointer<vtkTransform> T2 = vtkSmartPointer<vtkTransform>::New();
+  d->LeftPassiveSlider->setMinimum(portLogic->GetPassiveJointMin(d->CurrentLeftPassiveIdx));
+  d->LeftPassiveSlider->setMaximum(portLogic->GetPassiveJointMax(d->CurrentLeftPassiveIdx));
+  d->RightPassiveSlider->setMinimum(portLogic->GetPassiveJointMin(d->CurrentRightPassiveIdx));
+  d->RightPassiveSlider->setMaximum(portLogic->GetPassiveJointMax(d->CurrentRightPassiveIdx));
 
-    // feasible
-    // double qpL[] = {0.846626, -0.664014, -0.408133, -1.07303, -0.198602, 1.37977};
-    // double qpR[] = {0.765958, -0.157138, 1.31227, 1.50681, -0.175029, 0.133613};
-    // double qaL[] = {0.138726, 0.566036, -0.446022, 0.120849, -0.405235, -0.00288185};
-    // double qaR[] = {-0.100714, 0.123434, 2.52511, 0.113845, 0.12373, 0.00165253};
+  d->LeftPassiveSlider->setValue(portLogic->GetPassiveLeftJoint(d->CurrentLeftPassiveIdx));
+  d->RightPassiveSlider->setValue(portLogic->GetPassiveRightJoint(d->CurrentRightPassiveIdx));
+}
 
-    // feasible 2
-    // double qpL[] = {0.634685, -0.125776, -0.785423, -1.34508, 0.377312, 0.754663};
-    // double qpR[] = {0.609013, 0.576171, 0.522083, 2.07754, 0.549291, 0.644443};
-    // double qaL[] = {0.107182, 0.677258, 0.207816, 0.191605, -0.946489, -7.88494e-11};
-    // double qaR[] = {0.0342193, -0.79834, 2.37376, 0.135024, -0.59262, -6.22769e-11};
+void qSlicerAutoPortPlacementModuleWidget::onRefreshConfigButtonPressed()
+{
+  vtkSlicerAutoPortPlacementLogic *portLogic = 
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
+  portLogic->RenderRobot();
+}
 
-    // ut
-    double qpL[] = {0.85993, 0.0455779, -2.07171, 0.546936, -0.220682, 1.61233};
-    double qpR[] = {0.846446, 0.0851037, 0.815465, 1.62051, 0.86111, -0.208047};
-    double qaL[] = {0.0111741, 0.016704, 0.0496599, 0.114426, 0.203629, 0.00823273};
-    double qaR[] = {1.24795, 0.718033, 2.48334, 0.141979, 0.661817, 0.00825092};
+void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveComboChanged(int idx)
+{
+  Q_D(qSlicerAutoPortPlacementModuleWidget);
+  
+  vtkSlicerAutoPortPlacementLogic *portLogic = 
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
 
-    // initial
-    // double qpL[] = {0.744029, -0.259442, -0.896604, -1.16588, 0.0253959, 0.821945};
-    // double qpR[] = {0.743998, 0.258795, 0.896916, 1.16692, -0.0255285, -0.820174};
-    // double qaL[] = {0.0141122, -0.024297, -0.00217849, 0.111999, 0.00570296, 0.00316633};
-    // double qaR[] = {-0.0142031, -0.0244509, -3.14049, 0.111999, -0.00578722, 0.0032048};
+  d->CurrentLeftPassiveIdx = idx;
 
-    portLogic->AddDavinciPrimitives(*T1->GetMatrix(), qpL, qaL);
-    portLogic->AddDavinciPrimitives(*T2->GetMatrix(), qpR, qaR);
-    }
+  d->LeftPassiveSlider->setMinimum(portLogic->GetPassiveJointMin(idx));
+  d->LeftPassiveSlider->setMaximum(portLogic->GetPassiveJointMax(idx));
+
+  d->LeftPassiveSlider->setValue(portLogic->GetPassiveLeftJoint(idx));
+}
+
+void qSlicerAutoPortPlacementModuleWidget::onRightPassiveComboChanged(int idx)
+{
+  Q_D(qSlicerAutoPortPlacementModuleWidget);
+  
+  vtkSlicerAutoPortPlacementLogic *portLogic = 
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
+
+  d->CurrentRightPassiveIdx = idx;
+
+  d->RightPassiveSlider->setMinimum(portLogic->GetPassiveJointMin(idx));
+  d->RightPassiveSlider->setMaximum(portLogic->GetPassiveJointMax(idx));
+
+  d->RightPassiveSlider->setValue(portLogic->GetPassiveRightJoint(idx));
+}
+
+void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveSliderChanged(double value)
+{
+  Q_D(qSlicerAutoPortPlacementModuleWidget);
+  
+  vtkSlicerAutoPortPlacementLogic *portLogic = 
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
+
+  portLogic->SetPassiveLeftJoint(d->CurrentLeftPassiveIdx, value);
+
+  portLogic->RenderRobot();
+}
+
+void qSlicerAutoPortPlacementModuleWidget::onRightPassiveSliderChanged(double value)
+{
+  Q_D(qSlicerAutoPortPlacementModuleWidget);
+  
+  vtkSlicerAutoPortPlacementLogic *portLogic = 
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
+
+  portLogic->SetPassiveRightJoint(d->CurrentRightPassiveIdx, value);
+
+  portLogic->RenderRobot();
 }

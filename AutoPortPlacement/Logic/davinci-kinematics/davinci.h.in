@@ -114,6 +114,15 @@ public:
                           std::vector<double>* mean_clearance,
                           std::vector<double>* cov_clearance) const;
 
+  double getPassiveJointMin(unsigned idx) const;
+  double getPassiveJointMax(unsigned idx) const;
+
+  double getActiveJointMin(unsigned idx) const;
+  double getActiveJointMax(unsigned idx) const;
+  
+  void getDefaultPassiveConfig(std::vector<double>* q) const;
+  void getDefaultActiveConfig(std::vector<double>* q) const;
+
 private:
   DavinciParameters params_;
 };

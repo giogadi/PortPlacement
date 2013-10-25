@@ -4,8 +4,41 @@
 #include <pugixml.hpp>
 #include <stdexcept>
 
+#include <boost/math/constants/constants.hpp>
+
 namespace
 {
+  const double passiveLowerBounds[] = {0.5,
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
+                                       -(2.0/3.0)*boost::math::constants::pi<double>()};
+
+  const double passiveUpperBounds[] = {1.0,
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>(),
+                                       (2.0/3.0)*boost::math::constants::pi<double>()};
+
+  const double activeLowerBounds[] = {-boost::math::constants::pi<double>()/3,
+                                      -boost::math::constants::pi<double>()/3,
+                                      -boost::math::constants::pi<double>(),
+                                      0.0,
+                                      -boost::math::constants::pi<double>()/2,
+                                      -boost::math::constants::pi<double>()/2};
+
+  // For now I'm doing symmetric bounds, and making up a bound for the
+  // last joint. Accoring to Azimian's implementation, q[1]'s limit is
+  // actually pi/4, which is strange and should be checked up on.
+  const double  activeUpperBounds[] = {boost::math::constants::pi<double>()/3,
+                                       boost::math::constants::pi<double>()/3,
+                                       boost::math::constants::pi<double>(),
+                                       0.2,
+                                       boost::math::constants::pi<double>()/2,
+                                       boost::math::constants::pi<double>()/2};
+
   Eigen::Matrix4d xRotation(double theta)
   {
     Eigen::Matrix4d R = Eigen::Matrix4d::Identity();
@@ -686,4 +719,25 @@ void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& baseFrameL,
   // populate out-parameters
   mean_clearanceOut->swap(mean_clearance);
   cov_clearanceOut->swap(cov_clearance);
+}
+
+double DavinciKinematics::getPassiveJointMin(unsigned idx) const
+{
+  return passiveLowerBounds[idx];
+}
+
+double DavinciKinematics::getPassiveJointMax(unsigned idx) const
+{
+  return passiveUpperBounds[idx];
+}
+
+void DavinciKinematics::getDefaultPassiveConfig(std::vector<double>* q) const
+{
+  (*q)[0] = 0.5;
+  std::fill(q->begin()+1, q->end(), 0.0);
+}
+
+void DavinciKinematics::getDefaultActiveConfig(std::vector<double>* q) const
+{
+  std::fill(q->begin(), q->end(), 0.0);
 }

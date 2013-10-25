@@ -37,8 +37,79 @@
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerAutoPortPlacementLogic);
 
+namespace
+{
+  // inline vtkTransToEigenMatrix(const vtkTransform& matrixVTK,
+  //                              Eigen::Matrix4d* matrixEigen)
+  // {
+  //   for (unsigned i = 0; i < 4; ++i)
+  //     for (unsigned j = 0; j < 4; ++j)
+  //       (*matrixEigen)(i,j) = (*(matrixVTK.GetMatrix()))[i][j];
+  // }
+
+  void cylisphereToTransformNode(const Collisions::Cylisphere& c,
+                                 vtkSmartPointer<vtkMRMLLinearTransformNode> tNode)
+  {
+    Eigen::Vector3d p1 = c.p1*1000;
+    Eigen::Vector3d p2 = c.p2*1000;
+
+    double cylinderRad = c.r*1000;
+    Eigen::Vector3d cylinderVec = p2 - p1;
+    double cylinderHeight = cylinderVec.norm();
+
+    // Rotate
+    cylinderVec.normalize();
+    Eigen::Vector3d e2; e2(0) = 0.0; e2(1) = 1.0; e2(2) = 0.0;
+    Eigen::Vector3d rotationAxis = e2.cross(cylinderVec);
+    double angle = acos(e2.dot(cylinderVec));
+    rotationAxis.normalize();
+
+    vtkSmartPointer<vtkMatrix4x4> m = vtkSmartPointer<vtkMatrix4x4>::New();
+    tNode->GetMatrixTransformToWorld(m.GetPointer());
+    vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+    t->SetMatrix(m);
+    t->Inverse();
+    tNode->ApplyTransformMatrix(t->GetMatrix());
+
+    t->Identity();
+    t->Translate(p1(0), p1(1), p1(2));
+    t->RotateWXYZ(vtkMath::DegreesFromRadians(angle), 
+                  rotationAxis(0), rotationAxis(1), rotationAxis(2));
+    t->Translate(0.0, 0.5*cylinderHeight, 0.0);
+    t->Scale(cylinderRad, cylinderHeight, cylinderRad);
+
+    tNode->ApplyTransformMatrix(t->GetMatrix());
+  }
+
+  void sphereToTransformNode(const Collisions::Sphere& s,
+                             vtkSmartPointer<vtkMRMLLinearTransformNode> tNode)
+  {
+    vtkSmartPointer<vtkMatrix4x4> m = vtkSmartPointer<vtkMatrix4x4>::New();
+    tNode->GetMatrixTransformToWorld(m.GetPointer());
+    vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+    t->SetMatrix(m);
+    t->Inverse();
+    tNode->ApplyTransformMatrix(t->GetMatrix());
+
+    t->Identity();
+    Eigen::Vector3d p = 1000*s.p;
+    double r = 1000*s.r;
+    t->Translate(p(0), p(1), p(2));
+    t->Scale(r, r, r);
+
+    tNode->ApplyTransformMatrix(t->GetMatrix());
+  }
+}
+
 //----------------------------------------------------------------------------
-vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic()
+vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic() :
+  RobotBaseX(0.0),
+  RobotBaseY(0.0),
+  LeftPassiveConfig(6),
+  RightPassiveConfig(6),
+  LeftActiveConfig(6),
+  RightActiveConfig(6),
+  IsRobotInitialized(false)
 {
   this->Kinematics = new DavinciKinematics();
 
@@ -49,6 +120,11 @@ vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic()
 
   this->SphereSource = vtkSmartPointer<vtkSphereSource>::New();
   this->SphereSource->SetRadius(1.0);
+
+  this->Kinematics->getDefaultPassiveConfig(&(this->LeftPassiveConfig));
+  this->Kinematics->getDefaultPassiveConfig(&(this->RightPassiveConfig));
+  this->Kinematics->getDefaultActiveConfig(&(this->LeftActiveConfig));
+  this->Kinematics->getDefaultActiveConfig(&(this->RightActiveConfig));
 }
 
 //----------------------------------------------------------------------------
@@ -63,29 +139,46 @@ void vtkSlicerAutoPortPlacementLogic::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 
-//---------------------------------------------------------------------------
-void vtkSlicerAutoPortPlacementLogic::AddDavinciPrimitives(const vtkMatrix4x4& vtkBaseFrame,
-                                                           const double* q_passive,
-                                                           const double* q_active)
-{  
-  Eigen::Matrix4d baseFrame;
-  for (unsigned i = 0; i < 4; ++i)
-    for (unsigned j = 0; j < 4; ++j)
-      baseFrame(i,j) = vtkBaseFrame.GetElement(i,j);
+//----------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::RenderRobot()
+{
+  if (this->IsRobotInitialized)
+    this->UpdateRobot();
+  else
+    this->InitRobot();
+}
 
-  std::vector<double> q_passive_v(&(q_passive[0]), &(q_passive[6]));
-  std::vector<double> q_active_v(&(q_active[0]), &(q_active[6]));
-
+//----------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::InitRobot()
+{
   std::vector<Collisions::Cylisphere> cylispheres;
-  Collisions::Sphere sphere;
-  this->Kinematics->getPassivePrimitives(baseFrame, q_passive_v,
-                                         &cylispheres, &sphere);
-
-  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrame, q_passive_v),
-                                        q_active_v,
+  std::vector<Collisions::Sphere> spheres(2);
+  Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
+  baseFrameL(0,0) = -1.0;
+  baseFrameL(1,1) = -1.0;
+  baseFrameL(0,3) = this->RobotBaseX;
+  baseFrameL(1,3) = this->RobotBaseY;
+  this->Kinematics->getPassivePrimitives(baseFrameL,
+                                         this->LeftPassiveConfig,
+                                         &cylispheres,
+                                         &(spheres[0]));
+  Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
+  baseFrameR(0,3) = this->RobotBaseX;
+  baseFrameR(1,3) = this->RobotBaseY;
+  this->Kinematics->getPassivePrimitives(baseFrameR,
+                                         this->RightPassiveConfig,
+                                         &cylispheres,
+                                         &(spheres[1]));
+  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrameL,
+                                                                    this->LeftPassiveConfig),
+                                        this->LeftActiveConfig,
+                                        &cylispheres);
+  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrameR,
+                                                                    this->RightPassiveConfig),
+                                        this->RightActiveConfig,
                                         &cylispheres);
 
-  for (std::size_t i = 0; i < cylispheres.size(); ++i)
+  for (unsigned i = 0; i < cylispheres.size(); ++i)
     {
     vtkSmartPointer<vtkMRMLModelNode> modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
     modelNode->SetName(this->GetMRMLScene()->GenerateUniqueName("Link").c_str());
@@ -101,61 +194,119 @@ void vtkSlicerAutoPortPlacementLogic::AddDavinciPrimitives(const vtkMatrix4x4& v
     this->GetMRMLScene()->AddNode(displayNode);
     modelNode->SetAndObserveDisplayNodeID(displayNode->GetID());
 
-    // Transform cylinder into proper pose
-    vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
+    vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode = 
+      vtkSmartPointer<vtkMRMLLinearTransformNode>::New();
+    cylisphereToTransformNode(cylispheres[i],
+                              transformNode);
+    this->GetMRMLScene()->AddNode(transformNode);   
+    modelNode->SetAndObserveTransformNodeID(transformNode->GetID());
+
+    this->RobotTransformNodes.push_back(transformNode);
+    }
+
+  for (unsigned i = 0; i < spheres.size(); ++i)
+    {
+    vtkSmartPointer<vtkMRMLModelNode> modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
+    modelNode->SetName(this->GetMRMLScene()->GenerateUniqueName("Link").c_str());
+    vtkSmartPointer<vtkPolyData> polyData = this->SphereSource->GetOutput();
+    modelNode->SetAndObservePolyData(polyData);
+
+    this->GetMRMLScene()->AddNode(modelNode);
     
-    Eigen::Vector3d p1 = cylispheres[i].p1*1000;
-    Eigen::Vector3d p2 = cylispheres[i].p2*1000;
-
-    double cylinderRad = cylispheres[i].r*1000;
-    Eigen::Vector3d cylinderVec = p2 - p1;
-    double cylinderHeight = cylinderVec.norm();
-
-    // Rotate
-    cylinderVec.normalize();
-    Eigen::Vector3d e2; e2(0) = 0.0; e2(1) = 1.0; e2(2) = 0.0;
-    Eigen::Vector3d rotationAxis = e2.cross(cylinderVec);
-    double angle = acos(e2.dot(cylinderVec));
-    rotationAxis.normalize();
-
-    t->Translate(p1(0), p1(1), p1(2));
-    t->RotateWXYZ(vtkMath::DegreesFromRadians(angle), 
-                  rotationAxis(0), rotationAxis(1), rotationAxis(2));
-    t->Translate(0.0, 0.5*cylinderHeight, 0.0);
-    t->Scale(cylinderRad, cylinderHeight, cylinderRad);
+    vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode = 
+      vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
+    displayNode->SetColor(0.0,1.0,1.0); // cyan
+    this->GetMRMLScene()->AddNode(displayNode);
+    modelNode->SetAndObserveDisplayNodeID(displayNode->GetID());
 
     vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode = 
       vtkSmartPointer<vtkMRMLLinearTransformNode>::New();
-    transformNode->ApplyTransformMatrix(t->GetMatrix());
-    this->GetMRMLScene()->AddNode(transformNode);
-   
-    modelNode->SetAndObserveTransformNodeID(transformNode->GetID());    
+    sphereToTransformNode(spheres[i], transformNode);
+    this->GetMRMLScene()->AddNode(transformNode);  
+    modelNode->SetAndObserveTransformNodeID(transformNode->GetID());
+
+    this->RobotTransformNodes.push_back(transformNode);
     }
 
-  vtkSmartPointer<vtkMRMLModelNode> modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
-  modelNode->SetName(this->GetMRMLScene()->GenerateUniqueName("Link").c_str());
-  vtkSmartPointer<vtkPolyData> polyData = this->SphereSource->GetOutput();
-  modelNode->SetAndObservePolyData(polyData);
+  this->IsRobotInitialized = true;
+}
 
-  this->GetMRMLScene()->AddNode(modelNode);
-    
-  vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode = 
-    vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
-  displayNode->SetColor(0.0,1.0,1.0); // cyan
-  this->GetMRMLScene()->AddNode(displayNode);
-  modelNode->SetAndObserveDisplayNodeID(displayNode->GetID());
+//---------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
+{
+  std::vector<Collisions::Cylisphere> cylispheres;
+  std::vector<Collisions::Sphere> spheres(2);
+  Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
+  baseFrameL(0,0) = -1.0;
+  baseFrameL(1,1) = -1.0;
+  baseFrameL(0,3) = this->RobotBaseX;
+  baseFrameL(1,3) = this->RobotBaseY;
+  this->Kinematics->getPassivePrimitives(baseFrameL,
+                                         this->LeftPassiveConfig,
+                                         &cylispheres,
+                                         &(spheres[0]));
+  Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
+  baseFrameR(0,3) = this->RobotBaseX;
+  baseFrameR(1,3) = this->RobotBaseY;
+  this->Kinematics->getPassivePrimitives(baseFrameR,
+                                         this->RightPassiveConfig,
+                                         &cylispheres,
+                                         &(spheres[1]));
+  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrameL,
+                                                                    this->LeftPassiveConfig),
+                                        this->LeftActiveConfig,
+                                        &cylispheres);
+  this->Kinematics->getExtraCylispheres(this->Kinematics->passiveFK(baseFrameR,
+                                                                    this->RightPassiveConfig),
+                                        this->RightActiveConfig,
+                                        &cylispheres);
 
-  vtkSmartPointer<vtkTransform> t = vtkSmartPointer<vtkTransform>::New();
-  Eigen::Vector3d p = 1000*sphere.p;
-  double r = 1000*sphere.r;
-  t->Translate(p(0), p(1), p(2));
-  t->Scale(r, r, r);
-  vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode = 
-    vtkSmartPointer<vtkMRMLLinearTransformNode>::New();
-  transformNode->ApplyTransformMatrix(t->GetMatrix());
-  this->GetMRMLScene()->AddNode(transformNode);
-  
-  modelNode->SetAndObserveTransformNodeID(transformNode->GetID());
+  for (unsigned i = 0; i < cylispheres.size(); ++i)
+    {
+    cylisphereToTransformNode(cylispheres[i],
+                              this->RobotTransformNodes[i]);
+    }
+  for (unsigned i = 0; i < spheres.size(); ++i)
+    {
+    sphereToTransformNode(spheres[i],
+                          this->RobotTransformNodes[cylispheres.size()+i]);
+    }
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::SetPassiveLeftJoint(unsigned jointIdx, double value)
+{
+  this->LeftPassiveConfig[jointIdx] = value;
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::SetPassiveRightJoint(unsigned jointIdx, double value)
+{
+  this->RightPassiveConfig[jointIdx] = value;
+}
+
+//---------------------------------------------------------------------------
+double vtkSlicerAutoPortPlacementLogic::GetPassiveLeftJoint(unsigned jointIdx) const
+{
+  return this->LeftPassiveConfig[jointIdx];
+}
+
+//---------------------------------------------------------------------------
+double vtkSlicerAutoPortPlacementLogic::GetPassiveRightJoint(unsigned jointIdx) const
+{
+  return this->RightPassiveConfig[jointIdx];
+}
+
+//---------------------------------------------------------------------------
+double vtkSlicerAutoPortPlacementLogic::GetPassiveJointMin(unsigned idx) const
+{
+  return this->Kinematics->getPassiveJointMin(idx);
+}
+
+//---------------------------------------------------------------------------
+double vtkSlicerAutoPortPlacementLogic::GetPassiveJointMax(unsigned idx) const
+{
+  return this->Kinematics->getPassiveJointMax(idx);
 }
 
 //---------------------------------------------------------------------------

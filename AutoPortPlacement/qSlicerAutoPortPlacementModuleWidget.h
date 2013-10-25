@@ -39,7 +39,11 @@ public:
   virtual ~qSlicerAutoPortPlacementModuleWidget();
 
 public slots:
-  void onPushButtonClicked(); // debug stuff
+  void onRefreshConfigButtonPressed();
+  void onLeftPassiveComboChanged(int idx);
+  void onLeftPassiveSliderChanged(double value);
+  void onRightPassiveComboChanged(int idx);
+  void onRightPassiveSliderChanged(double value);
 
 protected:
   QScopedPointer<qSlicerAutoPortPlacementModuleWidgetPrivate> d_ptr;
