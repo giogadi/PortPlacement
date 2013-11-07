@@ -118,9 +118,9 @@ class PortPlacementWidget:
     #
     # Remove Port button
     #
-    # self.removePortButton = qt.QPushButton("Remove Selected Port")
-    # self.removePortButton.enabled = False
-    # portsFormLayout.addRow(self.removePortButton)
+    self.removePortButton = qt.QPushButton("Remove Selected Port")
+    self.removePortButton.enabled = False
+    portsFormLayout.addRow(self.removePortButton)
 
     #
     # Target area
@@ -161,12 +161,12 @@ class PortPlacementWidget:
     #
     # Transform sliders
     #
-    # self.transformSliders = slicer.qMRMLTransformSliders()
-    # self.transformSliders.TypeOfTransform = slicer.qMRMLTransformSliders.ROTATION
-    # self.transformSliders.CoordinateReference = slicer.qMRMLTransformSliders.LOCAL
-    # self.transformSliders.Title = 'Tool Orientation'
-    # self.transformSliders.minMaxVisible = False
-    # toolsFormLayout.addRow(self.transformSliders)
+    self.transformSliders = slicer.qMRMLTransformSliders()
+    self.transformSliders.TypeOfTransform = slicer.qMRMLTransformSliders.ROTATION
+    self.transformSliders.CoordinateReference = slicer.qMRMLTransformSliders.LOCAL
+    self.transformSliders.Title = 'Tool Orientation'
+    self.transformSliders.minMaxVisible = False
+    toolsFormLayout.addRow(self.transformSliders)
 
     #
     # radius spin box
@@ -190,10 +190,10 @@ class PortPlacementWidget:
     self.portListSelector.connect('currentNodeChanged(bool)', self.onPortListSelectorChanged)
     self.targetSelector.connect('currentNodeChanged(bool)', self.onTargetSelectorChanged)
     self.addPortListButton.connect('clicked(bool)', self.onAddPortListButton)
-    # self.removePortButton.connect('clicked(bool)', self.onRemovePortButton)
+    self.removePortButton.connect('clicked(bool)', self.onRemovePortButton)
     self.retargetButton.connect('clicked(bool)', self.onRetargetButton)
-    # self.radiusSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
-    # self.lengthSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
+    self.radiusSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
+    self.lengthSpinBox.connect('valueChanged(double)', self.onToolShapeChanged)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -218,81 +218,84 @@ class PortPlacementWidget:
     self.logic.setMarkupsNode(self.portListSelector.currentNode(),
                               self.radiusSpinBox.value,
                               self.lengthSpinBox.value)
-    # (portFiducials, portVisibility) = self.logic.addTools(self.portListSelector.currentNode(),
-    #                                                       self.radiusSpinBox.value,
-    #                                                       self.lengthSpinBox.value)
-    # self.updateTable(portFiducials, portVisibility)
+    self.updateTable()
 
-  # def onRemovePortButton(self):
-  #   # Problem: currentIndex() can be valid even when there is no
-  #   # visible selection. This will have to do for now while I figure
-  #   # out how to making Python bindings to QList<QModelIndex> (ugh)
-  #   #
-  #   # TODO: instead of using index in table, use our new item ->
-  #   # fiducial mapping
-  #   index = self.portsTable.selectionModel().currentIndex()
-  #   (portFiducials, portVisibility) = self.logic.removeToolByIndex(index.row())
-  #   self.updateTable(portFiducials, portVisibility)
+  def onRemovePortButton(self):
+    # Problem: currentIndex() can be valid even when there is no
+    # visible selection. This will have to do for now while I figure
+    # out how to making Python bindings to QList<QModelIndex> (ugh)
+    index = self.portsTable.selectionModel().currentIndex()
+    self.logic.markupsNode.RemoveMarkup(index.row())
+    self.updateTable()
 
-  # def onTableItemChanged(self,item):
-  #   # Get fiducial corresponding to the table item
-  #   fiducial = self.itemFiducialMap[item]
+  def onTableItemChanged(self,item):
+    # Get markup index corresponding to the table item
+    idx = self.itemPortIdxMap[item]
 
-  #   # If the item is checkable, it's a visibility column. If not, it's
-  #   # the name column
-  #   if item.isCheckable():
-  #     if item.checkState() == 2: # checked enum
-  #       self.logic.makeToolVisible(fiducial)
-  #     else:
-  #       self.logic.makeToolInvisible(fiducial)
+    # If the item is checkable, it's a visibility column. If not, it's
+    # the name column
+    if item.isCheckable():
+      if item.checkState() == 2: # checked enum
+        self.logic.makeToolVisible(idx)
+      else:
+        self.logic.makeToolInvisible(idx)
 
-  #   else: # name column
-  #     fiducial.SetName(item.text())
+    else: # name column
+      self.logic.markupsNode.SetNthFiducialLabel(idx, item.text())
 
   def onNodeRemoved(self, scene, event):
     self.logic.onNodeRemoved()
-    # (portFiducials, portVisibility) = self.logic.onNodeRemoved()
-    # self.updateTable(portFiducials, portVisibility)
+    self.updateTable()
 
   def onRetargetButton(self):
     self.logic.retargetTools(self.targetSelector.currentNode())
 
-  # def onToolShapeChanged(self):
-  #     toolIdx = self.portsTable.selectionModel().currentIndex().row()
-  #     if toolIdx < self.portsTableModel.rowCount:
-  #       self.logic.setToolShapeByIndex(toolIdx, self.radiusSpinBox.value, self.lengthSpinBox.value)
+  def onToolShapeChanged(self):
+      toolIdx = self.portsTable.selectionModel().currentIndex().row()
+      if toolIdx < self.portsTableModel.rowCount:
+        self.logic.setToolShape(toolIdx, self.radiusSpinBox.value, self.lengthSpinBox.value)
 
-  # def onCurrentToolChanged(self, newIndex, prevIndex):
-  #   self.removePortButton.enabled = True
-  #   self.transformSliders.setMRMLTransformNode(self.logic.getToolTransformByIndex(newIndex.row()))
-  #   self.radiusSpinBox.setValue(self.logic.getToolRadiusByIndex(newIndex.row()))
-  #   self.lengthSpinBox.setValue(self.logic.getToolLengthByIndex(newIndex.row()))
+  def onCurrentToolChanged(self, newIndex, prevIndex):
+    self.removePortButton.enabled = True
+    self.transformSliders.setMRMLTransformNode(self.logic.getToolTransform(newIndex.row()))
+    self.radiusSpinBox.setValue(self.logic.getToolRadius(newIndex.row()))
+    self.lengthSpinBox.setValue(self.logic.getToolLength(newIndex.row()))
 
-  # def updateTable(self, portFiducials, portVisibility):
-  #   self.itemFiducialMap = {}
-  #   self.portsTableModel = qt.QStandardItemModel()
-  #   self.portsTable.setModel(self.portsTableModel)
-  #   for (row,(fid, vis)) in enumerate(zip(portFiducials,portVisibility)):
-  #     item = qt.QStandardItem()
-  #     item.setText(fid.GetName())
-  #     self.portsTableModel.setItem(row,0,item)
-  #     self.itemFiducialMap[item] = fid
+  def updateTable(self):
+    self.portsTableModel = qt.QStandardItemModel()
+    self.portsTable.setModel(self.portsTableModel)
+    self.transformSliders.reset()
+    self.removePortButton.enabled = False
+    self.transformSliders.setMRMLTransformNode(None)
 
-  #     item = qt.QStandardItem()
-  #     item.setText('Visible')
-  #     item.setCheckable(True)
-  #     item.setCheckState(vis)
-  #     self.portsTableModel.setItem(row,1,item)
-  #     self.itemFiducialMap[item] = fid
-  #   self.portsTableModel.setHeaderData(0,1,"Port Fiducial Name")
-  #   self.portsTableModel.setHeaderData(1,1," ")
-  #   self.portsTable.setColumnWidth(0,15*len("Port Fiducial Name"))
+    node = self.logic.markupsNode
 
-  #   self.portsTableModel.itemChanged.connect(self.onTableItemChanged)
-  #   self.transformSliders.reset()
-  #   self.removePortButton.enabled = False
-  #   self.transformSliders.setMRMLTransformNode(None)
-  #   self.portsTable.selectionModel().currentRowChanged.connect(self.onCurrentToolChanged)
+    if node is None:
+      return
+
+    self.itemPortIdxMap = {}
+    for i in range(node.GetNumberOfFiducials()):
+      item = qt.QStandardItem()
+      item.setText(self.logic.getPortName(i))
+      self.portsTableModel.setItem(i, 0, item)
+      self.itemPortIdxMap[item] = i
+
+      item = qt.QStandardItem()
+      item.setText('Visible')
+      item.setCheckable(True)
+      if self.logic.isToolVisible(i):
+        checkState = 2 # checked enum
+      else:
+        checkState = 0 # unchecked enum
+      item.setCheckState(checkState)
+      self.portsTableModel.setItem(i, 1, item)
+      self.itemPortIdxMap[item] = i
+    self.portsTableModel.setHeaderData(0, 1, "Port Fiducial Name")
+    self.portsTableModel.setHeaderData(1, 1, " ")
+    self.portsTable.setColumnWidth(0, 15*len("Port Fiducial Name"))
+
+    self.portsTableModel.itemChanged.connect(self.onTableItemChanged)
+    self.portsTable.selectionModel().currentRowChanged.connect(self.onCurrentToolChanged)
 
   def onReload(self,moduleName="PortPlacement"):
     """Generic reload method for any scripted module.
@@ -359,7 +362,11 @@ class PortPlacementLogic:
   """
 
   class Tool:
+
+    # TODO figure out how to make the model and transform nodes hidden in Slicer
     def __init__(self, markupID, radius, length, position):
+      # We use the markupID to check whether this tool's markup has
+      # been removed in the onMarkupRemoved event
       self.markupID = markupID
 
       # Create a vtkCylinderSource for rendering the tool
@@ -367,7 +374,7 @@ class PortPlacementLogic:
       self.toolSrc.SetRadius(radius)
       self.toolSrc.SetHeight(length)
 
-      # Create tool model using toolSrc
+      # Create tool model using cylinder source
       self.modelNode = slicer.vtkMRMLModelNode()
       self.modelNode.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
       polyData = self.toolSrc.GetOutput()
@@ -376,7 +383,6 @@ class PortPlacementLogic:
 
       # Create a DisplayNode for this node (so that it can control its
       # own visibility) and have modelNode observe it
-      # and then our model display node
       self.modelDisplay = slicer.vtkMRMLModelDisplayNode()
       self.modelDisplay.SetColor(0,1,1) # cyan
       slicer.mrmlScene.AddNode(self.modelDisplay)
@@ -401,23 +407,7 @@ class PortPlacementLogic:
       self.toolSrc.SetHeight(length)
       self.toolSrc.Update()
 
-    def updatePosition(self, position):
-      self.__updateTransformNode__(position)
-
-    def makeVisible(self):
-      self.modelDisplay.VisibilityOn()
-      self.visible = True
-
-    def makeInvisible(self):
-      self.modelDisplay.VisibilityOff()
-      self.visible = False
-
-    def __del__(self):
-      slicer.mrmlScene.RemoveNode(self.modelNode)
-      slicer.mrmlScene.RemoveNode(self.modelDisplay)
-      slicer.mrmlScene.RemoveNode(self.transformNode)
-
-    def __updateTransformNode__(self, p):
+    def updatePosition(self, p):
       # First get the transformNode's current transform it, invert it
       # to get back to identity, then set the new transform
       #
@@ -439,6 +429,22 @@ class PortPlacementLogic:
       t.RotateWXYZ(orientWXYZ[0], orientWXYZ[1:])
       self.transformNode.ApplyTransformMatrix(t.GetMatrix())
 
+    def makeVisible(self):
+      self.modelDisplay.VisibilityOn()
+      self.visible = True
+
+    def makeInvisible(self):
+      self.modelDisplay.VisibilityOff()
+      self.visible = False
+
+    def __del__(self):
+      slicer.mrmlScene.RemoveNode(self.modelNode)
+      slicer.mrmlScene.RemoveNode(self.modelDisplay)
+      slicer.mrmlScene.RemoveNode(self.transformNode)
+
+    # End Tool
+
+
   def __init__(self):
     self.markupsNode = None
     self.toolList = []
@@ -447,15 +453,18 @@ class PortPlacementLogic:
     if not (self.markupsNode is None):
       self.MarkupsNode.RemoveObserver(self.nodeObserverTag)
 
+  # CAREFUL: the order of these operations is important
   def clearMarkupsNode(self):
-    # Clear the current tool list
-    self.toolList = []
-
     # If we were observing another node, remove first remove ourself
     # as an observer
     if not (self.markupsNode is None):
       self.markupsNode.RemoveObserver(self.pointModifiedObserverTag)
       self.markupsNode.RemoveObserver(self.markupRemovedObserverTag)
+
+    self.markupsNode = None
+
+    # Clear the current tool list
+    self.toolList = []
 
   def setMarkupsNode(self, node, radius, length):
     self.clearMarkupsNode()
@@ -465,15 +474,17 @@ class PortPlacementLogic:
       self.pointModifiedObserverTag = node.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onMarkupModified)
       self.markupRemovedObserverTag = node.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupRemovedEvent, self.onMarkupRemoved)
 
-      # Add tools associated with the markups in markupsNode (if type is
-      # vtkMRMLMarkupsFiducial)
+      # Add tools associated with the markups in markupsNode
       for i in range(node.GetNumberOfFiducials()):
         p = [0,0,0]
         node.GetNthFiducialPosition(i, p)
         self.toolList.append(self.Tool(node.GetNthMarkupID(i), radius, length, p))
 
-  def setToolShapeByIndex(self, idx, radius, length):
+  def setToolShape(self, idx, radius, length):
     self.toolList[idx].updateShape(radius, length)
+
+  def isToolVisible(self, idx):
+    return self.toolList[idx].visible
 
   def makeToolVisible(self, idx):
     self.toolList[idx].makeVisible()
@@ -481,14 +492,17 @@ class PortPlacementLogic:
   def makeToolInvisible(self, idx):
     self.toolList[idx].makeInvisible()
 
-  def getToolTransformByIndex(self, idx):
+  def getToolTransform(self, idx):
     return self.toolList[idx].transformNode
 
-  def getToolRadiusByIndex(self, idx):
-    return self.toolList[idx].radius
+  def getToolRadius(self, idx):
+    return self.toolList[idx].toolSrc.GetRadius()
 
-  def getToolLengthByIndex(self, idx):
-    return self.toolList[idx].length
+  def getToolLength(self, idx):
+    return self.toolList[idx].toolSrc.GetHeight()
+
+  def getPortName(self, idx):
+    return self.markupsNode.GetNthFiducialLabel(idx)
 
   # If the node we're observing has been modified, just iterate
   # through and update all the tools since for now we don't know how
@@ -499,6 +513,8 @@ class PortPlacementLogic:
       node.GetNthFiducialPosition(i, p)
       self.toolList[i].updatePosition(p)
 
+  # If the markupsNode this logic is associated with was deleted,
+  # clear the tools
   def onNodeRemoved(self):
     if (self.markupsNode is None):
       return
@@ -506,6 +522,8 @@ class PortPlacementLogic:
     if not slicer.mrmlScene.IsNodePresent(self.markupsNode):
       self.clearMarkupsNode()
 
+  # If a markup has been removed from the markupsNode we're associated
+  # with, remove the corresponding tool
   def onMarkupRemoved(self, node, event):
     if self.markupsNode is None:
       return
@@ -522,94 +540,8 @@ class PortPlacementLogic:
     if prevLen == len(self.toolList):
       print("One of our nodes wasn't removed...")
 
-  # These flags are a horrible, HORRIBLE result of not being able to
-  # inspect what kind of node the scene just removed (because it
-  # hasn't yet been wrapped in Python). If the flags weren't there,
-  # what would happen is that upon removal of the tool model, this
-  # function would get called AGAIN, and so-on for infinite
-  # recursion. So, with the flags, we guarantee that the body of this
-  # function only gets called for the fiducial node removal.
-  #
-  # We also want to look for removal of the currently active node
-  # hierarchy.
-  # def onNodeRemoved(self):
-  #   if self.flag:
-  #     self.flag = False
-  #     # This seems like a really wasteful solution, but for now it's
-  #     # necessary because apparently the calldata representing the
-  #     # removed fiducial has not yet been wrapped in Python.
-  #     for fiducial in self.fiducialToolMap.keys():
-  #       if not slicer.mrmlScene.IsNodePresent(fiducial):
-  #         self.removeTool(fiducial)
-  #     self.flag = True
-  #   return self.getPortsAndVisibility()
-
-  # def addTool(self, fiducialNode, radius, length):
-  #   # Make sure this annotation is indeed a fiducial marker, and don't
-  #   # add the same fiducial twice
-  #   if fiducialNode.GetClassName() == 'vtkMRMLAnnotationFiducialNode' and \
-  #         not fiducialNode in self.fiducialToolMap:
-  #     # create the tool model
-  #     toolModel = slicer.vtkMRMLModelNode()
-  #     toolModel.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
-  #     toolSrc = vtk.vtkCylinderSource()
-  #     toolSrc.SetRadius(radius)
-  #     toolSrc.SetHeight(length)
-  #     polyData = toolSrc.GetOutput()
-  #     toolModel.SetAndObservePolyData(polyData)
-  #     slicer.mrmlScene.AddNode(toolModel)
-
-  #     # and then our model display node
-  #     modelDisplay = slicer.vtkMRMLModelDisplayNode()
-  #     modelDisplay.SetColor(0,1,1) # cyan
-  #     slicer.mrmlScene.AddNode(modelDisplay)
-  #     toolModel.SetAndObserveDisplayNodeID(modelDisplay.GetID())
-
-  #     # and our transform node to correspond with the fiducial's position
-  #     fidPos = [0,0,0]
-  #     fiducialNode.GetFiducialCoordinates(fidPos)
-  #     t = vtk.vtkTransform()
-  #     t.Translate(fidPos)
-  #     transformNode = slicer.vtkMRMLLinearTransformNode()
-  #     transformNode.ApplyTransformMatrix(t.GetMatrix())
-  #     transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
-  #     slicer.mrmlScene.AddNode(transformNode)
-
-  #     # apply the new transform to our tool
-  #     toolModel.SetAndObserveTransformNodeID(transformNode.GetID())
-
-  #     # add an observer to this fiducial node to monitor changes in its position
-  #     tag = fiducialNode.AddObserver('ModifiedEvent', self.onFiducialModified)
-
-  #     # add the model, model display, and transform to our fiducialToolMap
-  #     self.fiducialToolMap[fiducialNode] = self.Tool(toolSrc,
-  #                                                    toolModel,
-  #                                                    modelDisplay,
-  #                                                    True,
-  #                                                    transformNode,
-  #                                                    tag)
-  #   return self.getPortsAndVisibility()
-
-  # def addTools(self, annotationHierarchy, radius, length):
-  #   fiducialList = self.fromHierarchyToFiducialList(annotationHierarchy)
-  #   for f in fiducialList:
-  #     self.addTool(f, radius, length)
-  #   return self.getPortsAndVisibility()
-
-  # def getPortsAndVisibility(self):
-  #   return (self.fiducialToolMap.keys(),
-  #           [self.fiducialToolMap[f].visible for f in self.fiducialToolMap])
-
-  # def fromHierarchyToFiducialList(self, annotationHierarchy):
-  #   collection = vtk.vtkCollection()
-  #   annotationHierarchy.GetChildrenDisplayableNodes(collection)
-  #   portFiducialList = [collection.GetItemAsObject(i) for i in
-  #                       xrange(collection.GetNumberOfItems())]
-  #   return [fid for fid in portFiducialList
-  #           if fid.GetClassName() == "vtkMRMLAnnotationFiducialNode"]
-
+  # Target all tools toward the targetFid
   def retargetTools(self, targetFid):
-
     if self.markupsNode is None or \
        targetFid.GetNumberOfFiducials() < 1 or \
        targetFid == self.markupsNode:
