@@ -198,9 +198,9 @@ class PortPlacementWidget:
     # Add vertical spacer
     self.layout.addStretch(1)
 
-    # Add observer to scene for removal of fiducials
-    # self.sceneObserverTag = slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeRemovedEvent,
-    #                                                      self.onNodeRemoved)
+    # Add observer to scene for removal of fiducial nodes
+    self.sceneObserverTag = slicer.mrmlScene.AddObserver(slicer.mrmlScene.NodeRemovedEvent,
+                                                         self.onNodeRemoved)
 
     # instantiate port placement module logic
     self.logic = PortPlacementLogic()
@@ -249,9 +249,10 @@ class PortPlacementWidget:
   #   else: # name column
   #     fiducial.SetName(item.text())
 
-  # def onNodeRemoved(self, scene, event):
-  #   (portFiducials, portVisibility) = self.logic.onNodeRemoved()
-  #   self.updateTable(portFiducials, portVisibility)
+  def onNodeRemoved(self, scene, event):
+    self.logic.onNodeRemoved()
+    # (portFiducials, portVisibility) = self.logic.onNodeRemoved()
+    # self.updateTable(portFiducials, portVisibility)
 
   def onRetargetButton(self):
     self.logic.retargetTools(self.targetSelector.currentNode())
@@ -358,7 +359,9 @@ class PortPlacementLogic:
   """
 
   class Tool:
-    def __init__(self, radius, length, position):
+    def __init__(self, markupID, radius, length, position):
+      self.markupID = markupID
+
       # Create a vtkCylinderSource for rendering the tool
       self.toolSrc = vtk.vtkCylinderSource()
       self.toolSrc.SetRadius(radius)
@@ -440,37 +443,34 @@ class PortPlacementLogic:
     self.markupsNode = None
     self.toolList = []
 
-    # TODO figure out if this goes
-    # this is a horrible hack to avoid recursion in onFiducialRemoved
-    # self.flag = True
-
   def __del__(self):
-    self.toolList = []
-
     if not (self.markupsNode is None):
       self.MarkupsNode.RemoveObserver(self.nodeObserverTag)
 
-  def setMarkupsNode(self, node, radius, length):
+  def clearMarkupsNode(self):
     # Clear the current tool list
     self.toolList = []
 
     # If we were observing another node, remove first remove ourself
     # as an observer
     if not (self.markupsNode is None):
-      self.markupsNode.RemoveObserver(self.nodeObserverTag)
+      self.markupsNode.RemoveObserver(self.pointModifiedObserverTag)
+      self.markupsNode.RemoveObserver(self.markupRemovedObserverTag)
+
+  def setMarkupsNode(self, node, radius, length):
+    self.clearMarkupsNode()
 
     self.markupsNode = node
-    # Add observer to vtkMRMLMarkupsNode::PointModifiedEvent.
-    # TODO find a way to refer to the actual enum variable instead of this ugly constant
-    PointModifiedEvent = 19002
-    self.nodeObserverTag = node.AddObserver(PointModifiedEvent, self.onMarkupModified)
+    if not (node is None):
+      self.pointModifiedObserverTag = node.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onMarkupModified)
+      self.markupRemovedObserverTag = node.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupRemovedEvent, self.onMarkupRemoved)
 
-    # Add tools associated with the markups in markupsNode (if type is
-    # vtkMRMLMarkupsFiducial)
-    for i in range(node.GetNumberOfFiducials()):
-      p = [0,0,0]
-      node.GetNthFiducialPosition(i, p)
-      self.toolList.append(self.Tool(radius, length, p))
+      # Add tools associated with the markups in markupsNode (if type is
+      # vtkMRMLMarkupsFiducial)
+      for i in range(node.GetNumberOfFiducials()):
+        p = [0,0,0]
+        node.GetNthFiducialPosition(i, p)
+        self.toolList.append(self.Tool(node.GetNthMarkupID(i), radius, length, p))
 
   def setToolShapeByIndex(self, idx, radius, length):
     self.toolList[idx].updateShape(radius, length)
@@ -498,6 +498,29 @@ class PortPlacementLogic:
       p = [0,0,0]
       node.GetNthFiducialPosition(i, p)
       self.toolList[i].updatePosition(p)
+
+  def onNodeRemoved(self):
+    if (self.markupsNode is None):
+      return
+
+    if not slicer.mrmlScene.IsNodePresent(self.markupsNode):
+      self.clearMarkupsNode()
+
+  def onMarkupRemoved(self, node, event):
+    if self.markupsNode is None:
+      return
+
+    markupsSet = set()
+    for i in range(self.markupsNode.GetNumberOfFiducials()):
+      markupsSet.add(self.markupsNode.GetNthMarkupID(i))
+
+    prevLen = len(self.toolList)
+    for i in range(len(self.toolList)):
+      if not (self.toolList[i].markupID in markupsSet):
+        del self.toolList[i]
+        break
+    if prevLen == len(self.toolList):
+      print("One of our nodes wasn't removed...")
 
   # These flags are a horrible, HORRIBLE result of not being able to
   # inspect what kind of node the scene just removed (because it
