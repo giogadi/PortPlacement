@@ -97,13 +97,13 @@ class PortPlacementWidget:
     self.portListSelector.removeEnabled = False
     self.portListSelector.noneEnabled = True
     self.portListSelector.setMRMLScene(slicer.mrmlScene)
-    self.portListSelector.setToolTip("Add surgical ports from a list of fiducials.")
-    portsFormLayout.addRow("List of Surgical Ports", self.portListSelector)
+    self.portListSelector.setToolTip("Add surgical ports from a markups node.")
+    portsFormLayout.addRow("Markups node of surgical ports", self.portListSelector)
 
     #
     # Add Port List button
     #
-    self.addPortListButton = qt.QPushButton("Add Ports from List")
+    self.addPortListButton = qt.QPushButton("Set Port Markups Node")
     self.addPortListButton.enabled = False
     portsFormLayout.addRow(self.addPortListButton)
 
@@ -205,8 +205,13 @@ class PortPlacementWidget:
     # instantiate port placement module logic
     self.logic = PortPlacementLogic()
 
+    self.currentMarkupsNode = None
+    self.onMarkupAddedTag = None
+
   def __del__(self):
     slicer.mrmlScene.RemoveObserver(self.sceneObserverTag)
+    if not (self.currentMarkupsNode is None):
+      self.currentMarkupsNode.RemoveObserver(self.onMarkupAddedTag)
 
   def onPortListSelectorChanged(self, valid):
     self.addPortListButton.enabled = valid
@@ -218,6 +223,12 @@ class PortPlacementWidget:
     self.logic.setMarkupsNode(self.portListSelector.currentNode(),
                               self.radiusSpinBox.value,
                               self.lengthSpinBox.value)
+    if not (self.currentMarkupsNode is None):
+      self.currentMarkupsNode.RemoveObserver(self.onMarkupAddedTag)
+
+    self.currentMarkupsNode = self.portListSelector.currentNode()
+    self.onMarkupAddedTag = self.currentMarkupsNode.AddObserver(slicer.vtkMRMLMarkupsNode.MarkupAddedEvent, self.onMarkupAdded)
+
     self.updateTable()
 
   def onRemovePortButton(self):
@@ -243,8 +254,14 @@ class PortPlacementWidget:
     else: # name column
       self.logic.markupsNode.SetNthFiducialLabel(idx, item.text())
 
+  def onMarkupAdded(self, node, event):
+    self.logic.onMarkupAdded(self.radiusSpinBox.value, self.lengthSpinBox.value)
+    self.updateTable()
+
   def onNodeRemoved(self, scene, event):
     self.logic.onNodeRemoved()
+    if not (slicer.mrmlScene.IsNodePresent(self.currentMarkupsNode)):
+      self.currentMarkupsNode = None
     self.updateTable()
 
   def onRetargetButton(self):
@@ -363,7 +380,6 @@ class PortPlacementLogic:
 
   class Tool:
 
-    # TODO figure out how to make the model and transform nodes hidden in Slicer
     def __init__(self, markupID, radius, length, position):
       # We use the markupID to check whether this tool's markup has
       # been removed in the onMarkupRemoved event
@@ -376,6 +392,7 @@ class PortPlacementLogic:
 
       # Create tool model using cylinder source
       self.modelNode = slicer.vtkMRMLModelNode()
+      self.modelNode.HideFromEditorsOn()
       self.modelNode.SetName(slicer.mrmlScene.GenerateUniqueName("Tool"))
       polyData = self.toolSrc.GetOutput()
       self.modelNode.SetAndObservePolyData(polyData)
@@ -392,8 +409,9 @@ class PortPlacementLogic:
       # the proper radius, length, and position. Leave the orientation
       # at the default.
       self.transformNode = slicer.vtkMRMLLinearTransformNode()
+      self.transformNode.HideFromEditorsOn()
       self.transformNode.SetName(slicer.mrmlScene.GenerateUniqueName("Transform"))
-      self.__updateTransformNode__(position)
+      self.updatePosition(position)
       slicer.mrmlScene.AddNode(self.transformNode)
 
       # apply the new transform to our tool
@@ -408,25 +426,14 @@ class PortPlacementLogic:
       self.toolSrc.Update()
 
     def updatePosition(self, p):
-      # First get the transformNode's current transform it, invert it
-      # to get back to identity, then set the new transform
-      #
-      # TODO: figure out if there's a better way to do this, and if
-      # not, report an issue about this.
       mat = vtk.vtkMatrix4x4()
       self.transformNode.GetMatrixTransformToWorld(mat)
+      currPos = [mat.GetElement(j, 3) for j in [0,1,2]]
+      trans = [x - y for (x,y) in zip(p, currPos)]
 
       t = vtk.vtkTransform()
-      t.SetMatrix(mat)
-      orientWXYZ = [0,0,0,0]
-      t.GetOrientationWXYZ(orientWXYZ)
+      t.Translate(trans)
 
-      t.Inverse()
-      self.transformNode.ApplyTransformMatrix(t.GetMatrix())
-
-      t.Identity()
-      t.Translate(p)
-      t.RotateWXYZ(orientWXYZ[0], orientWXYZ[1:])
       self.transformNode.ApplyTransformMatrix(t.GetMatrix())
 
     def makeVisible(self):
@@ -439,7 +446,10 @@ class PortPlacementLogic:
 
     def __del__(self):
       slicer.mrmlScene.RemoveNode(self.modelNode)
-      slicer.mrmlScene.RemoveNode(self.modelDisplay)
+
+      # This line causes a "node already removed" error. Weird...
+      # slicer.mrmlScene.RemoveNode(self.modelDisplay)
+
       slicer.mrmlScene.RemoveNode(self.transformNode)
 
     # End Tool
@@ -451,7 +461,7 @@ class PortPlacementLogic:
 
   def __del__(self):
     if not (self.markupsNode is None):
-      self.MarkupsNode.RemoveObserver(self.nodeObserverTag)
+      self.markupsNode.RemoveObserver(self.nodeObserverTag)
 
   # CAREFUL: the order of these operations is important
   def clearMarkupsNode(self):
@@ -503,6 +513,12 @@ class PortPlacementLogic:
 
   def getPortName(self, idx):
     return self.markupsNode.GetNthFiducialLabel(idx)
+
+  def onMarkupAdded(self, radius, length):
+    newMarkupIdx = self.markupsNode.GetNumberOfFiducials() - 1
+    p = [0,0,0]
+    self.markupsNode.GetNthFiducialPosition(newMarkupIdx, p)
+    self.toolList.append(self.Tool(self.markupsNode.GetNthMarkupID(newMarkupIdx), radius, length, p))
 
   # If the node we're observing has been modified, just iterate
   # through and update all the tools since for now we don't know how
@@ -572,27 +588,29 @@ class PortPlacementLogic:
         continue
 
       targetVec = targetVec / numpy.linalg.norm(targetVec)
-      rotAxis = numpy.cross(numpy.array([0,1,0]), targetVec)
-      rotAxis = rotAxis / numpy.linalg.norm(rotAxis)
 
-      # get rotation angle and normalize rotation axis
-      angle = math.acos(numpy.dot(numpy.array([0,1,0]), targetVec)) * 180. / math.pi
-
-      # generate our transform
-      #
-      # We do this by first undo-ing the tool's current transform and
-      # then applying the new one.
       mat = vtk.vtkMatrix4x4()
       self.toolList[i].transformNode.GetMatrixTransformToWorld(mat)
+      currentVec = numpy.array([mat.GetElement(j, 1) for j in [0,1,2]])
+
+      rotAxis = numpy.cross(currentVec, targetVec)
+      normRotAxis = numpy.linalg.norm(rotAxis)
+      if normRotAxis <= 0.000001:
+        continue
+
+      # get rotation angle and normalize rotation axis
+      rotAxis = rotAxis / numpy.linalg.norm(rotAxis)
+      angle = math.acos(numpy.dot(currentVec, targetVec)) * 180. / math.pi
+
+      # generate our transform
       t = vtk.vtkTransform()
-      t.SetMatrix(mat)
-
-      t.Inverse()
-      self.toolList[i].transformNode.ApplyTransformMatrix(t.GetMatrix())
-
-      t.Identity()
-      t.Translate(portLocList)
+      trans = [mat.GetElement(j, 3) for j in [0,1,2]]
+      negTrans = [-x for x in trans]
+            
+      t.Translate(trans)
       t.RotateWXYZ(angle, rotAxis.tolist())
+      t.Translate(negTrans)
+
       self.toolList[i].transformNode.ApplyTransformMatrix(t.GetMatrix())
 
 
@@ -627,121 +645,107 @@ class PortPlacementTest(unittest.TestCase):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    # self.test_PortPlacement1()
+    self.test_PortPlacement1()
 
-  # def test_PortPlacement1(self):
-  #   import numpy
-  #   import numpy.linalg
-  #   import random
+  def test_PortPlacement1(self):
+    import numpy
+    import numpy.linalg
+    import random
 
-  #   self.delayDisplay("Starting test...")
+    self.delayDisplay("Starting test...")
 
-  #   m = slicer.util.mainWindow()
-  #   m.moduleSelector().selectModule('PortPlacement')
-  #   self.widget = slicer.modules.PortPlacementWidget
+    m = slicer.util.mainWindow()
+    m.moduleSelector().selectModule('PortPlacement')
+    self.widget = slicer.modules.PortPlacementWidget
 
-  #   logic = self.widget.logic
+    logic = self.widget.logic
+    markupsLogic = slicer.modules.markups.logic()
 
-  #   annotationsLogic = slicer.util.getModule('Annotations').logic()
-  #   f = slicer.vtkMRMLAnnotationFiducialNode()
-  #   f.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
-  #   f.Initialize(slicer.mrmlScene)
+    # check init
+    self.assertTrue(self.widget.portsTableModel.rowCount() == 0)
+    self.assertTrue(not self.widget.addPortListButton.enabled)
 
-  #   self.assertTrue(not self.widget.addPortButton.enabled)
-  #   self.widget.portFiducialSelector.setCurrentNode(f)
-  #   self.assertTrue(self.widget.addPortButton.enabled)
-  #   self.widget.onAddPortButton()
-  #   self.widget.onAddPortButton()
+    # add a list of ports
+    nodeID = markupsLogic.AddNewFiducialNode()
+    fidNode = slicer.mrmlScene.GetNodeByID(nodeID)
+    numPorts = 4
+    for i in range(numPorts):
+      fidNode.AddFiducial(*[random.uniform(-100.,100.) for j in range(3)])
+    self.widget.portListSelector.setCurrentNode(fidNode)
+    self.assertTrue(self.widget.addPortListButton.enabled)
+    self.widget.onAddPortListButton()
 
-  #   # check table
-  #   self.assertTrue(self.widget.portsTableModel.rowCount() == 1)
-  #   self.assertTrue(self.widget.portsTableModel.item(0).text() == f.GetName())
+    # check tool transforms
+    self.assertTrue(len(logic.toolList) == numPorts)
+    for i in range(numPorts):
+      p = [0,0,0]
+      fidNode.GetNthFiducialPosition(i, p)
+      tool_mat = vtk.vtkMatrix4x4()
+      logic.toolList[i].transformNode.GetMatrixTransformToWorld(tool_mat)
+      tool_pos = [tool_mat.GetElement(j, 3) for j in [0,1,2]]
+      diff = numpy.array(p) - numpy.array(tool_pos)
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+    
+      
+    # check table
+    self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts)
+    for i in range(numPorts):
+      self.assertTrue(self.widget.portsTableModel.item(i).text() == fidNode.GetNthMarkupLabel(i))
 
-  #   # check tool transform
-  #   center = [0,0,0,1]
-  #   toolPosition = [0,0,0,1]
-  #   logic.fiducialToolMap[f].model.TransformPointToWorld(center, toolPosition)
-  #   fidCoords = [0,0,0]
-  #   f.GetFiducialCoordinates(fidCoords)
-  #   diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-  #   self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+    # check removal
+    self.assertTrue(not self.widget.removePortButton.enabled)
+    index = self.widget.portsTableModel.index(0,0)
+    self.widget.portsTable.selectionModel().setCurrentIndex(index, qt.QItemSelectionModel.Current)
+    self.assertTrue(self.widget.removePortButton.enabled)
+    self.widget.onRemovePortButton()
+    self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts - 1)
+    self.assertTrue(len(logic.toolList) == numPorts - 1)
+    self.assertTrue(fidNode.GetNumberOfFiducials() == numPorts - 1)
 
-  #   index = self.widget.portsTableModel.index(0,0)
-  #   self.assertTrue(not self.widget.removePortButton.enabled)
-  #   self.widget.portsTable.selectionModel().setCurrentIndex(index, qt.QItemSelectionModel.Current)
-  #   self.assertTrue(self.widget.removePortButton.enabled)
-  #   self.widget.onRemovePortButton()
-  #   self.assertTrue(self.widget.portsTableModel.rowCount() == 0)
-  #   self.assertTrue(len(logic.fiducialToolMap) == 0)
+    # check add
+    fidNode.AddFiducial(*[random.uniform(-100.,100.) for i in range(3)])
+    self.assertTrue(len(logic.toolList) == numPorts)
+    self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts)
 
-  #   # add a list of ports
-  #   annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
-  #   annotationsLogic.AddHierarchy()
-  #   portsHierarchy = annotationsLogic.GetActiveHierarchyNode()
+    # check retarget
+    self.assertTrue(not self.widget.retargetButton.enabled)
+    targetNodeID = markupsLogic.AddNewFiducialNode()
+    targetNode = slicer.mrmlScene.GetNodeByID(targetNodeID)
+    targetNode.AddFiducial(*[random.uniform(-100.,100.) for i in range(3)])
+    self.widget.targetSelector.setCurrentNode(targetNode)
+    self.assertTrue(self.widget.retargetButton.enabled)
+    self.widget.onRetargetButton()
 
-  #   # Add some ports to our ports hierarchy
-  #   portFiducialNodes = []
-  #   numPorts = 4
-  #   for i in range(numPorts):
-  #     fiducialNode = slicer.vtkMRMLAnnotationFiducialNode()
-  #     fiducialNode.SetFiducialCoordinates(*[random.uniform(-100.,100.) for j in range(3)])
-  #     fiducialNode.Initialize(slicer.mrmlScene)
-  #     portFiducialNodes.append(fiducialNode)
+    target_p = [0,0,0]
+    targetNode.GetNthFiducialPosition(0, target_p)
+    targetWorld = target_p + [1]
 
-  #   self.assertTrue(not self.widget.addPortListButton.enabled)
-  #   self.widget.portListSelector.setCurrentNode(portsHierarchy)
-  #   self.assertTrue(self.widget.portListSelector.enabled)
-  #   self.widget.onAddPortListButton()
-  #   self.widget.onAddPortListButton()
+    # check retargeting by verifying that tools' positions are
+    # unchanged and that their y-axes are oriented toward point
+    for i in range(numPorts):
+      p = [0,0,0]
+      fidNode.GetNthFiducialPosition(i, p)
+      tool_mat = vtk.vtkMatrix4x4()
+      logic.toolList[i].transformNode.GetMatrixTransformToWorld(tool_mat)
+      tool_pos = [tool_mat.GetElement(j, 3) for j in [0,1,2]]
+      diff = numpy.array(p) - numpy.array(tool_pos)
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-  #   # check new fiducials
-  #   self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts)
-  #   keys = logic.fiducialToolMap.keys()
-  #   self.assertTrue(len(keys) == numPorts)
-  #   for (i,key) in enumerate(keys):
-  #     self.assertTrue(key in portFiducialNodes)
-  #     self.assertTrue(self.widget.portsTableModel.item(i).text() == key.GetName())
+      targetLocal = [0,0,0,1]
+      logic.toolList[i].modelNode.TransformPointFromWorld(targetWorld, targetLocal)
 
-  #     # check tool transform
-  #     logic.fiducialToolMap[key].model.TransformPointToWorld(center, toolPosition)
-  #     key.GetFiducialCoordinates(fidCoords)
-  #     diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-  #     self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+      targetLocal = numpy.array(targetLocal)[0:3]
+      targetLocal = targetLocal / numpy.linalg.norm(targetLocal)
 
-  #   # check retargeting
-  #   targetFiducial = slicer.vtkMRMLAnnotationFiducialNode()
-  #   targetFiducial.SetFiducialCoordinates(*[random.uniform(-100.,100.) for i in range(3)])
-  #   annotationsLogic.SetActiveHierarchyNodeID(annotationsLogic.GetTopLevelHierarchyNodeID())
-  #   targetFiducial.Initialize(slicer.mrmlScene)
-  #   annotationsLogic.SetActiveHierarchyNodeID(portsHierarchy.GetID())
+      # target local should be the unit y-axis (e2)
+      yAxis = numpy.array([0.,1.,0.])
+      diff = yAxis - targetLocal
 
-  #   self.assertTrue(not self.widget.retargetButton.enabled)
-  #   self.widget.targetSelector.setCurrentNode(targetFiducial)
-  #   self.assertTrue(self.widget.retargetButton.enabled)
-  #   self.widget.onRetargetButton()
+      self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-  #   # check retargeting by verifying that tools' positions are
-  #   # unchanged and that their y-axes are oriented toward point
-  #   for key in keys:
-  #     logic.fiducialToolMap[key].model.TransformPointToWorld(center, toolPosition)
-  #     key.GetFiducialCoordinates(fidCoords)
-  #     diff = numpy.array(toolPosition)[0:3] - numpy.array(fidCoords)
-  #     self.assertTrue(numpy.dot(diff,diff) < 1e-10)
+    # test fidNode deletion
+    slicer.mrmlScene.RemoveNode(fidNode)
+    self.assertTrue(len(logic.toolList) == 0)
+    self.assertTrue(self.widget.portsTableModel.rowCount() == 0)
 
-  #     targetWorld = [0,0,0]
-  #     targetFiducial.GetFiducialCoordinates(targetWorld)
-  #     targetWorld = targetWorld + [1]
-  #     targetLocal = [0,0,0,1]
-  #     logic.fiducialToolMap[key].model.TransformPointFromWorld(targetWorld, targetLocal)
-
-  #     targetLocal = numpy.array(targetLocal)[0:3]
-  #     targetLocal = targetLocal / numpy.linalg.norm(targetLocal)
-
-  #     # target local should be the unit y-axis (e2)
-  #     yAxis = numpy.array([0.,1.,0.])
-  #     diff = yAxis - targetLocal
-  #     self.assertTrue(numpy.dot(diff,diff) < 1e-10)
-
-  #   # dunno how to test sliders...
-
-  #   self.delayDisplay("Test passed!")
+    self.delayDisplay("Test passed!")
