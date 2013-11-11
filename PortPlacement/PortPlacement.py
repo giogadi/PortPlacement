@@ -55,30 +55,30 @@ class PortPlacementWidget:
   def setup(self):
     # Instantiate and connect widgets ...
 
-    #
-    # Reload and Test area
-    #
-    reloadCollapsibleButton = ctk.ctkCollapsibleButton()
-    reloadCollapsibleButton.text = "Reload && Test"
-    self.layout.addWidget(reloadCollapsibleButton)
-    reloadFormLayout = qt.QFormLayout(reloadCollapsibleButton)
+    # #
+    # # Reload and Test area
+    # #
+    # reloadCollapsibleButton = ctk.ctkCollapsibleButton()
+    # reloadCollapsibleButton.text = "Reload && Test"
+    # self.layout.addWidget(reloadCollapsibleButton)
+    # reloadFormLayout = qt.QFormLayout(reloadCollapsibleButton)
 
-    # reload button
-    # (use this during development, but remove it when delivering
-    #  your module to users)
-    self.reloadButton = qt.QPushButton("Reload")
-    self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "PortPlacement Reload"
-    reloadFormLayout.addWidget(self.reloadButton)
-    self.reloadButton.connect('clicked()', self.onReload)
+    # # reload button
+    # # (use this during development, but remove it when delivering
+    # #  your module to users)
+    # self.reloadButton = qt.QPushButton("Reload")
+    # self.reloadButton.toolTip = "Reload this module."
+    # self.reloadButton.name = "PortPlacement Reload"
+    # reloadFormLayout.addWidget(self.reloadButton)
+    # self.reloadButton.connect('clicked()', self.onReload)
 
-    # reload and test button
-    # (use this during development, but remove it when delivering
-    #  your module to users)
-    self.reloadAndTestButton = qt.QPushButton("Reload and Test")
-    self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
-    reloadFormLayout.addWidget(self.reloadAndTestButton)
-    self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
+    # # reload and test button
+    # # (use this during development, but remove it when delivering
+    # #  your module to users)
+    # self.reloadAndTestButton = qt.QPushButton("Reload and Test")
+    # self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
+    # reloadFormLayout.addWidget(self.reloadAndTestButton)
+    # self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
 
     #
     # Ports Area
@@ -606,7 +606,7 @@ class PortPlacementLogic:
       t = vtk.vtkTransform()
       trans = [mat.GetElement(j, 3) for j in [0,1,2]]
       negTrans = [-x for x in trans]
-            
+
       t.Translate(trans)
       t.RotateWXYZ(angle, rotAxis.tolist())
       t.Translate(negTrans)
@@ -685,8 +685,8 @@ class PortPlacementTest(unittest.TestCase):
       tool_pos = [tool_mat.GetElement(j, 3) for j in [0,1,2]]
       diff = numpy.array(p) - numpy.array(tool_pos)
       self.assertTrue(numpy.dot(diff,diff) < 1e-10)
-    
-      
+
+
     # check table
     self.assertTrue(self.widget.portsTableModel.rowCount() == numPorts)
     for i in range(numPorts):
