@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>525</width>
-    <height>297</height>
+    <height>437</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -150,9 +150,143 @@
      </layout>
     </widget>
    </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="specifyCollapsible">
+     <property name="text">
+      <string>Specify Procedure</string>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Robot Base</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="qMRMLNodeComboBox" name="taskFrameComboBox">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="nodeTypes">
+         <stringlist>
+          <string>vtkMRMLMarkupsFiducialNode</string>
+         </stringlist>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="qMRMLNodeComboBox" name="portCurveComboBox">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="nodeTypes">
+         <stringlist>
+          <string>vtkMRMLMarkupsFiducialNode</string>
+         </stringlist>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Port Curve Endpoints</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Markups List of Task Frames</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="qMRMLNodeComboBox" name="robotBaseComboBox">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="nodeTypes">
+         <stringlist>
+          <string>vtkMRMLMarkupsFiducialNode</string>
+         </stringlist>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QPushButton" name="findSurgicalPlanButton">
+        <property name="text">
+         <string>Find Surgical Plan</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>qMRMLNodeComboBox</class>
+   <extends>QWidget</extends>
+   <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
   <customwidget>
    <class>qSlicerWidget</class>
    <extends>QWidget</extends>
@@ -250,6 +384,118 @@
     <hint type="destinationlabel">
      <x>262</x>
      <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>findSurgicalPlanButton</sender>
+   <signal>clicked()</signal>
+   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
+   <slot>onFindSurgicalPlanButtonPressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>386</x>
+     <y>405</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>taskFrameComboBox</sender>
+   <signal>currentNodeChanged(bool)</signal>
+   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
+   <slot>onSpecComboBoxChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>386</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>portCurveComboBox</sender>
+   <signal>currentNodeChanged(bool)</signal>
+   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
+   <slot>onSpecComboBoxChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>386</x>
+     <y>293</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>robotBaseComboBox</sender>
+   <signal>currentNodeChanged(bool)</signal>
+   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
+   <slot>onSpecComboBoxChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>386</x>
+     <y>326</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>qSlicerAutoPortPlacementModuleWidget</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>taskFrameComboBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>386</x>
+     <y>260</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>qSlicerAutoPortPlacementModuleWidget</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>portCurveComboBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>386</x>
+     <y>293</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>qSlicerAutoPortPlacementModuleWidget</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>robotBaseComboBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>262</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>386</x>
+     <y>326</y>
     </hint>
    </hints>
   </connection>

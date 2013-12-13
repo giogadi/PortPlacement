@@ -18,6 +18,9 @@
 // AutoPortPlacement Logic includes
 #include "vtkSlicerAutoPortPlacementLogic.h"
 
+// Optimization includes
+#include <optim/optim.h>
+
 // Kinematics includes
 #include <davinci-kinematics/davinci.h>
 
@@ -25,6 +28,7 @@
 #include <vtkMRMLModelNode.h>
 #include <vtkMRMLModelDisplayNode.h>
 #include <vtkMRMLLinearTransformNode.h>
+#include <vtkMRMLMarkupsFiducialNode.h>
 
 // VTK includes
 #include <vtkNew.h>
@@ -73,7 +77,7 @@ namespace
 
     t->Identity();
     t->Translate(p1(0), p1(1), p1(2));
-    t->RotateWXYZ(vtkMath::DegreesFromRadians(angle), 
+    t->RotateWXYZ(vtkMath::DegreesFromRadians(angle),
                   rotationAxis(0), rotationAxis(1), rotationAxis(2));
     t->Translate(0.0, 0.5*cylinderHeight, 0.0);
     t->Scale(cylinderRad, cylinderHeight, cylinderRad);
@@ -105,6 +109,7 @@ namespace
 vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic() :
   RobotBaseX(0.0),
   RobotBaseY(0.0),
+  RobotBaseZ(0.0),
   LeftPassiveConfig(6),
   RightPassiveConfig(6),
   LeftActiveConfig(6),
@@ -158,6 +163,7 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
   baseFrameL(1,1) = -1.0;
   baseFrameL(0,3) = this->RobotBaseX;
   baseFrameL(1,3) = this->RobotBaseY;
+  baseFrameL(2,3) = this->RobotBaseZ;
   this->Kinematics->getPassivePrimitives(baseFrameL,
                                          this->LeftPassiveConfig,
                                          &cylispheres,
@@ -165,6 +171,7 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
   Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
   baseFrameR(0,3) = this->RobotBaseX;
   baseFrameR(1,3) = this->RobotBaseY;
+  baseFrameR(2,3) = this->RobotBaseZ;
   this->Kinematics->getPassivePrimitives(baseFrameR,
                                          this->RightPassiveConfig,
                                          &cylispheres,
@@ -182,23 +189,23 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
     {
     vtkSmartPointer<vtkMRMLModelNode> modelNode = vtkSmartPointer<vtkMRMLModelNode>::New();
     modelNode->SetName(this->GetMRMLScene()->GenerateUniqueName("Link").c_str());
-    
+
     vtkSmartPointer<vtkPolyData> polyData = this->CylinderSource->GetOutput();
     modelNode->SetAndObservePolyData(polyData);
 
     this->GetMRMLScene()->AddNode(modelNode);
-    
-    vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode = 
+
+    vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode =
       vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
     displayNode->SetColor(0.0,1.0,1.0); // cyan
     this->GetMRMLScene()->AddNode(displayNode);
     modelNode->SetAndObserveDisplayNodeID(displayNode->GetID());
 
-    vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode = 
+    vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode =
       vtkSmartPointer<vtkMRMLLinearTransformNode>::New();
     cylisphereToTransformNode(cylispheres[i],
                               transformNode);
-    this->GetMRMLScene()->AddNode(transformNode);   
+    this->GetMRMLScene()->AddNode(transformNode);
     modelNode->SetAndObserveTransformNodeID(transformNode->GetID());
 
     this->RobotTransformNodes.push_back(transformNode);
@@ -212,17 +219,17 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
     modelNode->SetAndObservePolyData(polyData);
 
     this->GetMRMLScene()->AddNode(modelNode);
-    
-    vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode = 
+
+    vtkSmartPointer<vtkMRMLModelDisplayNode> displayNode =
       vtkSmartPointer<vtkMRMLModelDisplayNode>::New();
     displayNode->SetColor(0.0,1.0,1.0); // cyan
     this->GetMRMLScene()->AddNode(displayNode);
     modelNode->SetAndObserveDisplayNodeID(displayNode->GetID());
 
-    vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode = 
+    vtkSmartPointer<vtkMRMLLinearTransformNode> transformNode =
       vtkSmartPointer<vtkMRMLLinearTransformNode>::New();
     sphereToTransformNode(spheres[i], transformNode);
-    this->GetMRMLScene()->AddNode(transformNode);  
+    this->GetMRMLScene()->AddNode(transformNode);
     modelNode->SetAndObserveTransformNodeID(transformNode->GetID());
 
     this->RobotTransformNodes.push_back(transformNode);
@@ -241,6 +248,7 @@ void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
   baseFrameL(1,1) = -1.0;
   baseFrameL(0,3) = this->RobotBaseX;
   baseFrameL(1,3) = this->RobotBaseY;
+  baseFrameL(2,3) = this->RobotBaseZ;
   this->Kinematics->getPassivePrimitives(baseFrameL,
                                          this->LeftPassiveConfig,
                                          &cylispheres,
@@ -248,6 +256,7 @@ void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
   Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
   baseFrameR(0,3) = this->RobotBaseX;
   baseFrameR(1,3) = this->RobotBaseY;
+  baseFrameR(2,3) = this->RobotBaseZ;
   this->Kinematics->getPassivePrimitives(baseFrameR,
                                          this->RightPassiveConfig,
                                          &cylispheres,
@@ -271,6 +280,107 @@ void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
     sphereToTransformNode(spheres[i],
                           this->RobotTransformNodes[cylispheres.size()+i]);
     }
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::
+FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
+                 vtkMRMLNode* portCurveNode,
+                 vtkMRMLNode* robotBaseNode)
+{
+  vtkMRMLMarkupsFiducialNode* taskFramesFiducial =
+    vtkMRMLMarkupsFiducialNode::SafeDownCast(taskFramesNode);
+  vtkMRMLMarkupsFiducialNode* portCurvePointsFiducial =
+    vtkMRMLMarkupsFiducialNode::SafeDownCast(portCurveNode);
+  vtkMRMLMarkupsFiducialNode* robotBaseFiducial =
+    vtkMRMLMarkupsFiducialNode::SafeDownCast(robotBaseNode);
+
+  // Create a list of task frames from taskFramesFiducial
+  if (taskFramesFiducial->GetNumberOfFiducials() < 1)
+    {
+    vtkErrorMacro("FindFeasiblePlan: task frames node must have at least 1 fiducial!");
+    return;
+    }
+
+  Optim::Matrix4dVec taskFrames;
+  for (int tIdx = 0; tIdx < taskFramesFiducial->GetNumberOfFiducials(); ++tIdx)
+    {
+    Eigen::Matrix4d taskFrame = Eigen::Matrix4d::Identity();
+
+    // Get position part
+    double pos[3];
+    taskFramesFiducial->GetNthFiducialPosition(tIdx, pos);
+    for (unsigned i = 0; i < 3; ++i)
+      taskFrame(i,3) = pos[i];
+
+    // Get orientation part
+    double quat[4];
+    taskFramesFiducial->GetNthMarkupOrientation(tIdx, quat);
+    double rotMat[3][3];
+    vtkMath::QuaternionToMatrix3x3(quat, rotMat);
+    for (unsigned i = 0; i < 3; ++i)
+      for (unsigned j = 0; j < 3; ++j)
+        taskFrame(i,j) = rotMat[i][j];
+
+    taskFrames.push_back(taskFrame);
+    }
+
+  // Get our port curve endpoints from portCurvePointsFiducial
+  if (portCurvePointsFiducial->GetNumberOfFiducials() < 2)
+    {
+    vtkErrorMacro("FindFeasiblePlan: Port curve points node must have at least 2 fiducials!");
+    return;
+    }
+
+  Eigen::Vector3d portCurvePoints[2];
+  for (unsigned pIdx = 0; pIdx < 2; ++pIdx)
+    {
+    double pos[3];
+    portCurvePointsFiducial->GetNthFiducialPosition(pIdx, pos);
+    for (unsigned i = 0; i < 3; ++i)
+      portCurvePoints[pIdx](i) = pos[i];
+    }
+
+  // Set up the robot's base
+  if (robotBaseFiducial->GetNumberOfFiducials() < 1)
+    {
+    vtkErrorMacro("FindFeasiblePlan: robot base node must have at least 1 fiducial!");
+    return;
+    }
+
+  // For now use a default base orientation, with L arm rotated 180
+  // deg. In the future, have fiducial's z or w/e point to front of
+  // robot
+  Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
+  baseFrameL(0,0) = -1.0;
+  baseFrameL(1,1) = -1.0;
+  Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
+
+  double pos[3];
+  robotBaseFiducial->GetNthFiducialPosition(0, pos);
+  for (unsigned i = 0; i < 3; ++i)
+    {
+    baseFrameL(i,3) = pos[i];
+    baseFrameR(i,3) = pos[i];
+    }
+
+  // Find a feasible plan!
+  std::vector<double> qL(6);
+  std::vector<double> qR(6);
+  Optim::findFeasiblePlan(*this->Kinematics, baseFrameL, baseFrameR, taskFrames,
+                          portCurvePoints[0], portCurvePoints[1], &qL, &qR);
+
+  // Set robot to new plan
+  this->RobotBaseX = pos[0];
+  this->RobotBaseY = pos[1];
+  this->RobotBaseZ = pos[2];
+  for (unsigned i = 0; i < 6; ++i)
+    {
+    this->SetPassiveLeftJoint(i, qL[i]);
+    this->SetPassiveRightJoint(i, qR[i]);
+    }
+
+  this->UpdateRobot();
 }
 
 //---------------------------------------------------------------------------

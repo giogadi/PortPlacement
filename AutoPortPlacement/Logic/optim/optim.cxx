@@ -106,13 +106,13 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
                              std::vector<double>* qL_out,
                              std::vector<double>* qR_out)
 {
-  FeasiblePlanProblem problem = {kin, baseFrameL, baseFrameR, taskFrames, 
+  FeasiblePlanProblem problem = {kin, baseFrameL, baseFrameR, taskFrames,
                                  portCurvePoint1, portCurvePoint2};
 
   const unsigned numVariables = problem.getNumVariables();
 
   nlopt::opt opt(nlopt::LN_COBYLA, numVariables);
-  
+
   std::vector<double> lb(numVariables);
   std::vector<double> ub(numVariables);
   problem.getBounds(&lb, &ub);
@@ -123,7 +123,7 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
 
   std::size_t numIneqConstraints = problem.getNumConstraints();
   std::vector<double> ineqTol(numIneqConstraints, 0.0000001);
-  opt.add_inequality_mconstraint(&FeasiblePlanProblem::wrapIneq, 
+  opt.add_inequality_mconstraint(&FeasiblePlanProblem::wrapIneq,
                                  (void*) &problem,
                                  ineqTol);
 
@@ -177,8 +177,8 @@ void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
   const double CHANCE_CONSTRAINT = 0.1;
   boost::math::normal n;
   double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
-  this->kin.unscentedIK(portFrame, taskFrame, 
-                        Eigen::Vector3d::Constant(POSITION_VARIANCE), 
+  this->kin.unscentedIK(portFrame, taskFrame,
+                        Eigen::Vector3d::Constant(POSITION_VARIANCE),
                         Eigen::Vector3d::Constant(ORIENTATION_VARIANCE),
                         &mean_q, &cov_q);
   for (unsigned i = 0; i < 6; ++i)
@@ -199,8 +199,8 @@ void FeasiblePlanProblem::activeClearConstraint(const std::vector<double>& qpL,
   boost::math::normal n;
   double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
   std::vector<double> mean_c, cov_c;
-  this->kin.unscentedClearance(this->baseFrameL, this->baseFrameR, qpL, qpR, taskFrame, 
-                               Eigen::Vector3d::Constant(POSITION_VARIANCE), 
+  this->kin.unscentedClearance(this->baseFrameL, this->baseFrameR, qpL, qpR, taskFrame,
+                               Eigen::Vector3d::Constant(POSITION_VARIANCE),
                                Eigen::Vector3d::Constant(ORIENTATION_VARIANCE),
                                &mean_c, &cov_c);
   for (unsigned i = 0; i < this->kin.numActiveClearances(); ++i)
@@ -235,7 +235,7 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
                                    const double* x,
                                    double* /*grad*/,
                                    void* data)
-{ 
+{
   FeasiblePlanProblem* problem = reinterpret_cast<FeasiblePlanProblem*>(data);
 
   if (m != problem->getNumConstraints())
@@ -243,13 +243,13 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
 
   if (n != problem->getNumVariables())
     throw std::runtime_error("wrapIneq Error: wrong number of variables!");
-  
+
   std::vector<double> qL(&x[0], &x[6]);
   std::vector<double> qR(&x[6], &x[12]);
 
   // passive clear constraint
   problem->passiveClearConstraint(problem->baseFrameL, problem->baseFrameR,
-                                  qL, qR, &result[0]); 
+                                  qL, qR, &result[0]);
 
   // port constraints
   problem->portConstraint(problem->baseFrameL, qL, &result[1]);
@@ -261,8 +261,8 @@ void FeasiblePlanProblem::wrapIneq(unsigned int m,
   Eigen::Matrix4d portFrameR = problem->kin.passiveFK(problem->baseFrameR, qR);
   for (std::size_t k = 0; k < problem->taskFrames.size(); ++k)
     {
-    problem->ikConstraint(portFrameL, 
-                          problem->taskFrames[k], 
+    problem->ikConstraint(portFrameL,
+                          problem->taskFrames[k],
                           &c);
     for (unsigned i = 0; i < 6; ++i)
       result[3+(k*2*6)+i] = c[i];
@@ -297,7 +297,7 @@ double FeasiblePlanProblem::feasibleMinimaxObj(const std::vector<double>& x,
   return x[12];
 }
 
-void FeasiblePlanProblem::getBounds(std::vector<double>* lb, 
+void FeasiblePlanProblem::getBounds(std::vector<double>* lb,
                                     std::vector<double>* ub) const
 {
   for (unsigned i = 0; i < 6; ++i)
@@ -320,9 +320,9 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
   // double curveParamR = 0.5;
   double curveParamL = uniDist(rng);
   double curveParamR = uniDist(rng);
-  Eigen::Vector3d rcmL = 
+  Eigen::Vector3d rcmL =
     this->portCurvePoint1 + curveParamL*(this->portCurvePoint2 - this->portCurvePoint1);
-  Eigen::Vector3d rcmR = 
+  Eigen::Vector3d rcmR =
     this->portCurvePoint1 + curveParamR*(this->portCurvePoint2 - this->portCurvePoint1);
   std::vector<double> qL(6), qR(6);
   for (unsigned i = 0; i < 6; ++i)
@@ -332,13 +332,13 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
     }
   kin.passiveIK(this->baseFrameL, rcmL, &qL);
   std::cout << "Left IK done!" << std::endl; // debug
-  std::cout << "left error: " 
+  std::cout << "left error: "
             << (kin.passiveFK(baseFrameL, qL).topRightCorner<3,1>() - rcmL).norm()
             << std::endl;
 
   kin.passiveIK(this->baseFrameR, rcmR, &qR);
   std::cout << "Right IK done!" << std::endl; // debug
-  std::cout << "right error: " 
+  std::cout << "right error: "
             << (kin.passiveFK(baseFrameR, qR).topRightCorner<3,1>() - rcmR).norm()
             << std::endl;
 
@@ -362,10 +362,10 @@ void FeasiblePlanProblem::getInitialGuessExact(std::vector<double>* x) const
   (*x)[9] = -1.00725;
   (*x)[10] = 0.290322;
   (*x)[11] = 2.01327;
-  (*x)[12] = -1.08085e-06;         
+  (*x)[12] = -1.08085e-06;
 }
 
-void FeasiblePlanProblem::outputStateProperties(std::ostream& out, 
+void FeasiblePlanProblem::outputStateProperties(std::ostream& out,
                                                 const std::vector<double>& x) const
 {
   out << "x:";

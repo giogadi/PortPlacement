@@ -12,9 +12,6 @@ set(KIT ${PROJECT_NAME})
 
 set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_LOGIC_EXPORT")
 
-# set(${KIT}_INCLUDE_DIRECTORIES
-#   ${EIGEN3_INCLUDE_DIR})
-
 set(${KIT}_INCLUDE_DIRECTORIES
   )
 
@@ -26,6 +23,8 @@ set(${KIT}_SRCS
 set(${KIT}_TARGET_LIBRARIES
   ${ITK_LIBRARIES}
   davinci
+  optim
+  vtkSlicerMarkupsModuleMRML
   )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

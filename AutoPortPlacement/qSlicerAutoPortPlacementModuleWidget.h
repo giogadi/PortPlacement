@@ -44,10 +44,13 @@ public slots:
   void onLeftPassiveSliderChanged(double value);
   void onRightPassiveComboChanged(int idx);
   void onRightPassiveSliderChanged(double value);
+  void onSpecComboBoxChanged();
+
+  void onFindSurgicalPlanButtonPressed();
 
 protected:
   QScopedPointer<qSlicerAutoPortPlacementModuleWidgetPrivate> d_ptr;
-  
+
   virtual void setup();
 
 private:

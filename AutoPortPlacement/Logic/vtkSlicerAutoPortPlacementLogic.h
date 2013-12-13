@@ -64,6 +64,10 @@ public:
 
   void RenderRobot();
 
+  void FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
+                        vtkMRMLNode* portCurvePointsNode,
+                        vtkMRMLNode* robotBaseNode);
+
 protected:
   vtkSlicerAutoPortPlacementLogic();
   virtual ~vtkSlicerAutoPortPlacementLogic();
@@ -87,6 +91,7 @@ private:
 
   double RobotBaseX;
   double RobotBaseY;
+  double RobotBaseZ;
 
   std::vector<double> LeftPassiveConfig;
   std::vector<double> RightPassiveConfig;
@@ -105,7 +110,7 @@ private:
   //   std::vector<vtkSmartPointer<vtkMRMLModelDisplayNode > DisplayNodes;
   //   std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > TransformNodes;
   // }
-  
+
   // RobotNode DavinciNode;
   std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > RobotTransformNodes;
 
