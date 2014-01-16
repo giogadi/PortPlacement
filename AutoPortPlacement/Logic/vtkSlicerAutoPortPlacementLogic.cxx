@@ -25,6 +25,7 @@
 #include <davinci-kinematics/davinci.h>
 
 // MRML includes
+#include <vtkMRMLScene.h>
 #include <vtkMRMLModelNode.h>
 #include <vtkMRMLModelDisplayNode.h>
 #include <vtkMRMLLinearTransformNode.h>
@@ -34,6 +35,7 @@
 #include <vtkNew.h>
 #include <vtkTransform.h>
 #include <vtkMath.h>
+#include <vtkObjectFactory.h>
 
 // STD includes
 #include <cassert>
@@ -311,7 +313,7 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     double pos[3];
     taskFramesFiducial->GetNthFiducialPosition(tIdx, pos);
     for (unsigned i = 0; i < 3; ++i)
-      taskFrame(i,3) = pos[i];
+      taskFrame(i,3) = pos[i] / 1000;
 
     // Get orientation part
     double quat[4];
@@ -321,6 +323,9 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     for (unsigned i = 0; i < 3; ++i)
       for (unsigned j = 0; j < 3; ++j)
         taskFrame(i,j) = rotMat[i][j];
+
+    std::cout << "Task Frame:" << std::endl;
+    std::cout << taskFrame << std::endl;
 
     taskFrames.push_back(taskFrame);
     }
@@ -338,7 +343,10 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     double pos[3];
     portCurvePointsFiducial->GetNthFiducialPosition(pIdx, pos);
     for (unsigned i = 0; i < 3; ++i)
-      portCurvePoints[pIdx](i) = pos[i];
+      portCurvePoints[pIdx](i) = pos[i] / 1000;
+
+    std::cout << "Port curve pt:" << std::endl;
+    std::cout << portCurvePoints[pIdx] << std::endl;
     }
 
   // Set up the robot's base
@@ -360,9 +368,15 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
   robotBaseFiducial->GetNthFiducialPosition(0, pos);
   for (unsigned i = 0; i < 3; ++i)
     {
-    baseFrameL(i,3) = pos[i];
-    baseFrameR(i,3) = pos[i];
+    baseFrameL(i,3) = pos[i] / 1000;
+    baseFrameR(i,3) = pos[i] / 1000;
     }
+
+  std::cout << "base frame L:" << std::endl;
+  std::cout << baseFrameL << std::endl;
+
+  std::cout << "base frame R:" << std::endl;
+  std::cout << baseFrameR << std::endl;
 
   // Find a feasible plan!
   std::vector<double> qL(6);
@@ -452,4 +466,3 @@ void vtkSlicerAutoPortPlacementLogic
 ::OnMRMLSceneNodeRemoved(vtkMRMLNode* vtkNotUsed(node))
 {
 }
-

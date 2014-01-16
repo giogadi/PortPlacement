@@ -141,11 +141,24 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   problem.outputStateProperties(std::cout, x);
 
   double minf;
-  nlopt::result result = opt.optimize(x, minf);
+  nlopt::result result;
+  bool validResult = true;
+  try
+    {
+    result = opt.optimize(x, minf);
+    }
+  catch (nlopt::roundoff_limited& e)
+    {
+    std::cout << "warning: Optimization ended due to roundoff errors." << std::endl;
+    validResult = false;
+    }
 
-  std::cout << "=================" << std::endl;
-  std::cout << "Result: " << result << std::endl;
-  std::cout << "=================" << std::endl;
+  if (validResult)
+    {
+    std::cout << "=================" << std::endl;
+    std::cout << "Result: " << result << std::endl;
+    std::cout << "=================" << std::endl;
+    }
 
   std::cout << "================== x_opt ==============" << std::endl;
   problem.outputStateProperties(std::cout, x);
