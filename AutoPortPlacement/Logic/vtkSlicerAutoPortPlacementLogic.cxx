@@ -30,6 +30,7 @@
 #include <vtkMRMLModelDisplayNode.h>
 #include <vtkMRMLLinearTransformNode.h>
 #include <vtkMRMLMarkupsFiducialNode.h>
+#include <vtkMRMLAnnotationROINode.h>
 
 // VTK includes
 #include <vtkNew.h>
@@ -294,8 +295,8 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     vtkMRMLMarkupsFiducialNode::SafeDownCast(taskFramesNode);
   vtkMRMLMarkupsFiducialNode* portCurvePointsFiducial =
     vtkMRMLMarkupsFiducialNode::SafeDownCast(portCurveNode);
-  vtkMRMLMarkupsFiducialNode* robotBaseFiducial =
-    vtkMRMLMarkupsFiducialNode::SafeDownCast(robotBaseNode);
+  vtkMRMLAnnotationROINode* robotBaseROI =
+    vtkMRMLAnnotationROINode::SafeDownCast(robotBaseNode);
 
   // Create a list of task frames from taskFramesFiducial
   if (taskFramesFiducial->GetNumberOfFiducials() < 1)
@@ -350,26 +351,19 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     }
 
   // Set up the robot's base
-  if (robotBaseFiducial->GetNumberOfFiducials() < 1)
-    {
-    vtkErrorMacro("FindFeasiblePlan: robot base node must have at least 1 fiducial!");
-    return;
-    }
-
+  //
   // For now use a default base orientation, with L arm rotated 180
-  // deg. In the future, have fiducial's z or w/e point to front of
-  // robot
+  // deg.
   Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
   baseFrameL(0,0) = -1.0;
   baseFrameL(1,1) = -1.0;
   Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
-
   double pos[3];
-  robotBaseFiducial->GetNthFiducialPosition(0, pos);
+  robotBaseROI->GetXYZ(pos);
   for (unsigned i = 0; i < 3; ++i)
     {
-    baseFrameL(i,3) = pos[i] / 1000;
-    baseFrameR(i,3) = pos[i] / 1000;
+    baseFrameL(i,3) = pos[i] / 1000; // mm -> m
+    baseFrameR(i,3) = pos[i] / 1000; // mm -> m
     }
 
   std::cout << "base frame L:" << std::endl;

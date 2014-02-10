@@ -25,6 +25,7 @@ set(${KIT}_TARGET_LIBRARIES
   davinci
   optim
   vtkSlicerMarkupsModuleMRML
+  vtkSlicerAnnotationsModuleMRML
   )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
