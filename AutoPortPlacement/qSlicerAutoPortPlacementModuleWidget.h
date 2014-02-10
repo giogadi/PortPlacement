@@ -38,13 +38,17 @@ public:
   qSlicerAutoPortPlacementModuleWidget(QWidget *parent=0);
   virtual ~qSlicerAutoPortPlacementModuleWidget();
 
+  // If robot configuration is changed programmatically, have sliders
+  // reflect change
+  void RefreshConfigSliders();
+
 public slots:
-  void onRefreshConfigButtonPressed();
   void onLeftPassiveComboChanged(int idx);
   void onLeftPassiveSliderChanged(double value);
   void onRightPassiveComboChanged(int idx);
   void onRightPassiveSliderChanged(double value);
   void onSpecComboBoxChanged();
+  void onResetConfigButtonPressed();
 
   void onFindSurgicalPlanButtonPressed();
 

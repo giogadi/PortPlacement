@@ -68,6 +68,8 @@ public:
                         vtkMRMLNode* portCurvePointsNode,
                         vtkMRMLNode* robotBaseNode);
 
+  void ResetJointsToDefault();
+
 protected:
   vtkSlicerAutoPortPlacementLogic();
   virtual ~vtkSlicerAutoPortPlacementLogic();

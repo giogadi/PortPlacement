@@ -64,18 +64,9 @@ qSlicerAutoPortPlacementModuleWidget::~qSlicerAutoPortPlacementModuleWidget()
 }
 
 //-----------------------------------------------------------------------------
-void qSlicerAutoPortPlacementModuleWidget::setup()
+void qSlicerAutoPortPlacementModuleWidget::RefreshConfigSliders()
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
-  d->setupUi(this);
-
-  this->Superclass::setup();
-
-  d->LeftPassiveSlider->setSingleStep(0.001);
-  d->RightPassiveSlider->setSingleStep(0.001);
-
-  d->LeftPassiveConfigCombo->setCurrentIndex(d->CurrentLeftPassiveIdx);
-  d->RightPassiveConfigCombo->setCurrentIndex(d->CurrentRightPassiveIdx);
 
   vtkSlicerAutoPortPlacementLogic *portLogic =
     vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
@@ -89,11 +80,21 @@ void qSlicerAutoPortPlacementModuleWidget::setup()
   d->RightPassiveSlider->setValue(portLogic->GetPassiveRightJoint(d->CurrentRightPassiveIdx));
 }
 
-void qSlicerAutoPortPlacementModuleWidget::onRefreshConfigButtonPressed()
+//-----------------------------------------------------------------------------
+void qSlicerAutoPortPlacementModuleWidget::setup()
 {
-  vtkSlicerAutoPortPlacementLogic *portLogic =
-    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
-  portLogic->RenderRobot();
+  Q_D(qSlicerAutoPortPlacementModuleWidget);
+  d->setupUi(this);
+
+  this->Superclass::setup();
+
+  d->LeftPassiveSlider->setSingleStep(0.001);
+  d->RightPassiveSlider->setSingleStep(0.001);
+
+  d->LeftPassiveConfigCombo->setCurrentIndex(d->CurrentLeftPassiveIdx);
+  d->RightPassiveConfigCombo->setCurrentIndex(d->CurrentRightPassiveIdx);
+
+  this->RefreshConfigSliders();
 }
 
 void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveComboChanged(int idx)
@@ -172,4 +173,16 @@ void qSlicerAutoPortPlacementModuleWidget::onFindSurgicalPlanButtonPressed()
   portLogic->FindFeasiblePlan(d->taskFrameComboBox->currentNode(),
                               d->portCurveComboBox->currentNode(),
                               d->robotBaseComboBox->currentNode());
+}
+
+void qSlicerAutoPortPlacementModuleWidget::onResetConfigButtonPressed()
+{
+  vtkSlicerAutoPortPlacementLogic *portLogic =
+    vtkSlicerAutoPortPlacementLogic::SafeDownCast(this->logic());
+
+  portLogic->ResetJointsToDefault();
+
+  this->RefreshConfigSliders();
+
+  portLogic->RenderRobot();
 }

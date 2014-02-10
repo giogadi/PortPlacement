@@ -26,13 +26,6 @@
       <enum>QFrame::NoFrame</enum>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="3" column="2">
-       <widget class="QPushButton" name="RefreshConfigButton">
-        <property name="text">
-         <string>Refresh Configuration</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="0">
        <widget class="QLabel" name="LeftPassiveJointsLabel">
         <property name="text">
@@ -146,6 +139,13 @@
       </item>
       <item row="1" column="2">
        <widget class="ctkSliderWidget" name="RightPassiveSlider"/>
+      </item>
+      <item row="3" column="2">
+       <widget class="QPushButton" name="resetConfigButton">
+        <property name="text">
+         <string>Reset Robot Configuration</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -307,22 +307,6 @@
  </customwidgets>
  <resources/>
  <connections>
-  <connection>
-   <sender>RefreshConfigButton</sender>
-   <signal>clicked()</signal>
-   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
-   <slot>onRefreshConfigButtonPressed()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>262</x>
-     <y>86</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>262</x>
-     <y>159</y>
-    </hint>
-   </hints>
-  </connection>
   <connection>
    <sender>LeftPassiveConfigCombo</sender>
    <signal>currentIndexChanged(int)</signal>
@@ -496,6 +480,22 @@
     <hint type="destinationlabel">
      <x>386</x>
      <y>326</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>resetConfigButton</sender>
+   <signal>clicked()</signal>
+   <receiver>qSlicerAutoPortPlacementModuleWidget</receiver>
+   <slot>onResetConfigButtonPressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>377</x>
+     <y>179</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>262</x>
+     <y>218</y>
     </hint>
    </hints>
   </connection>

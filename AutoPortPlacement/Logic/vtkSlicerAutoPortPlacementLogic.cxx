@@ -434,6 +434,15 @@ double vtkSlicerAutoPortPlacementLogic::GetPassiveJointMax(unsigned idx) const
 }
 
 //---------------------------------------------------------------------------
+void vtkSlicerAutoPortPlacementLogic::ResetJointsToDefault()
+{
+  this->Kinematics->getDefaultPassiveConfig(&(this->LeftPassiveConfig));
+  this->Kinematics->getDefaultPassiveConfig(&(this->RightPassiveConfig));
+  this->Kinematics->getDefaultActiveConfig(&(this->LeftActiveConfig));
+  this->Kinematics->getDefaultActiveConfig(&(this->RightActiveConfig));
+}
+
+//---------------------------------------------------------------------------
 void vtkSlicerAutoPortPlacementLogic::SetMRMLSceneInternal(vtkMRMLScene * newScene)
 {
   vtkNew<vtkIntArray> events;
