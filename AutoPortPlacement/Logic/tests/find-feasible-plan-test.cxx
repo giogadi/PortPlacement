@@ -4,11 +4,14 @@ int main()
 {
   DavinciKinematics kinematics;
   // Rotate about +z by 180 degrees
-  Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
-  baseFrameL(0,0) = -1.0;
-  baseFrameL(1,1) = -1.0;
+  Eigen::Matrix3d baseOrientationL = Eigen::Matrix3d::Identity();
+  baseOrientationL(0,0) = -1.0;
+  baseOrientationL(1,1) = -1.0;
 
-  Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
+  Eigen::Matrix3d baseOrientationR = Eigen::Matrix3d::Identity();
+
+  Eigen::Vector3d baseBoxMin = Eigen::Vector3d::Constant(-0.01);
+  Eigen::Vector3d baseBoxMax = Eigen::Vector3d::Constant(0.01);
 
   // Let's add two task frames for now
   Optim::Matrix4dVec taskFrames;
@@ -33,7 +36,7 @@ int main()
   frame(0,3) = 0.0;
   frame(1,3) = 0.81;
   frame(2,3) = 0.71;
-  
+
   taskFrames.push_back(frame);
 
   // Set line segment of feasible port locations
@@ -44,13 +47,15 @@ int main()
   Eigen::Vector3d portCurvePoint2 = frame.topRightCorner<3,1>();
   portCurvePoint2(2) += 0.12;
   portCurvePoint2(0) += 0.2;
-  
+
   // Give 'er a go!
   std::vector<double> qL(6);
   std::vector<double> qR(6);
-  Optim::findFeasiblePlan(kinematics, baseFrameL, baseFrameR, taskFrames,
+  Eigen::Vector3d basePosition;
+  Optim::findFeasiblePlan(kinematics, baseOrientationL, baseOrientationR,
+                          baseBoxMin, baseBoxMax, taskFrames,
                           portCurvePoint1, portCurvePoint2,
-                          &qL, &qR);
+                          &qL, &qR, &basePosition);
 
   return 0;
 }

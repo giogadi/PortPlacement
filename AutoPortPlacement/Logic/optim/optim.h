@@ -21,13 +21,16 @@ namespace Optim
   // Orientations of task frames are such that +x is the tip tangent,
   // +z is the last joint's axis
   bool findFeasiblePlan(const DavinciKinematics& kin,
-                        const Eigen::Matrix4d& baseFrameL,
-                        const Eigen::Matrix4d& baseFrameR,
+                        const Eigen::Matrix3d& baseOrientationL,
+                        const Eigen::Matrix3d& baseOrientationR,
+                        const Eigen::Vector3d& baseBoxMin,
+                        const Eigen::Vector3d& baseBoxMax,
                         const Matrix4dVec& taskFrames,
                         const Eigen::Vector3d& portCurvePoint1,
                         const Eigen::Vector3d& portCurvePoint2,
                         std::vector<double>* qL,
-                        std::vector<double>* qR);
+                        std::vector<double>* qR,
+                        Eigen::Vector3d* basePosition);
 };
 
 #endif
