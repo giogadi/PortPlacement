@@ -354,34 +354,39 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
   //
   // For now use a default base orientation, with L arm rotated 180
   // deg.
-  Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
-  baseFrameL(0,0) = -1.0;
-  baseFrameL(1,1) = -1.0;
-  Eigen::Matrix4d baseFrameR = Eigen::Matrix4d::Identity();
-  double pos[3];
-  robotBaseROI->GetXYZ(pos);
+  Eigen::Matrix3d baseOrientationL = Eigen::Matrix3d::Identity();
+  baseOrientationL(0,0) = -1.0;
+  baseOrientationL(1,1) = -1.0;
+  Eigen::Matrix3d baseOrientationR = Eigen::Matrix3d::Identity();
+  double radii[3];
+  double center[3];
+  robotBaseROI->GetRadiusXYZ(radii);
+  robotBaseROI->GetXYZ(center);
+  Eigen::Vector3d baseBoxMin, baseBoxMax;
   for (unsigned i = 0; i < 3; ++i)
     {
-    baseFrameL(i,3) = pos[i] / 1000; // mm -> m
-    baseFrameR(i,3) = pos[i] / 1000; // mm -> m
+    baseBoxMin(i) = (center[i] - radii[i]) / 1000.0; // mm -> m
+    baseBoxMax(i) = (center[i] + radii[i]) / 1000.0; // mm -> m
     }
 
-  std::cout << "base frame L:" << std::endl;
-  std::cout << baseFrameL << std::endl;
+  std::cout << "base box min:" << std::endl;
+  std::cout << baseBoxMin << std::endl;
 
-  std::cout << "base frame R:" << std::endl;
-  std::cout << baseFrameR << std::endl;
+  std::cout << "base box max:" << std::endl;
+  std::cout << baseBoxMax << std::endl;
 
   // Find a feasible plan!
   std::vector<double> qL(6);
   std::vector<double> qR(6);
-  Optim::findFeasiblePlan(*this->Kinematics, baseFrameL, baseFrameR, taskFrames,
-                          portCurvePoints[0], portCurvePoints[1], &qL, &qR);
+  Eigen::Vector3d basePosition;
+  Optim::findFeasiblePlan(*this->Kinematics, baseOrientationL, baseOrientationR,
+                          baseBoxMin, baseBoxMax, taskFrames,
+                          portCurvePoints[0], portCurvePoints[1], &qL, &qR, &basePosition);
 
   // Set robot to new plan
-  this->RobotBaseX = pos[0];
-  this->RobotBaseY = pos[1];
-  this->RobotBaseZ = pos[2];
+  this->RobotBaseX = basePosition(0);
+  this->RobotBaseY = basePosition(1);
+  this->RobotBaseZ = basePosition(2);
   for (unsigned i = 0; i < 6; ++i)
     {
     this->SetPassiveLeftJoint(i, qL[i]);
