@@ -111,8 +111,8 @@ namespace
 //----------------------------------------------------------------------------
 vtkSlicerAutoPortPlacementLogic::vtkSlicerAutoPortPlacementLogic() :
   RobotBaseX(0.0),
-  RobotBaseY(0.0),
-  RobotBaseZ(0.0),
+  RobotBaseY(-0.5),
+  RobotBaseZ(-0.5),
   LeftPassiveConfig(6),
   RightPassiveConfig(6),
   LeftActiveConfig(6),
@@ -161,6 +161,14 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
 {
   std::vector<Collisions::Cylisphere> cylispheres;
   std::vector<Collisions::Sphere> spheres(2);
+
+  // Make cylisphere for robot's stand
+  Collisions::Cylisphere standCyl;
+  standCyl.p1 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ);
+  standCyl.p2 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ + 1.0);
+  standCyl.r = 0.07; // ugh
+  cylispheres.push_back(standCyl);
+
   Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
   baseFrameL(0,0) = -1.0;
   baseFrameL(1,1) = -1.0;
@@ -246,6 +254,14 @@ void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
 {
   std::vector<Collisions::Cylisphere> cylispheres;
   std::vector<Collisions::Sphere> spheres(2);
+
+  // Make cylisphere for robot's stand
+  Collisions::Cylisphere standCyl;
+  standCyl.p1 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ);
+  standCyl.p2 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ + 1.0);
+  standCyl.r = 0.07; // ugh
+  cylispheres.push_back(standCyl);
+
   Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
   baseFrameL(0,0) = -1.0;
   baseFrameL(1,1) = -1.0;
