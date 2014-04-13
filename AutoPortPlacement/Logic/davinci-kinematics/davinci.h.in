@@ -11,7 +11,7 @@
 // Attributes prefixed with 'e' are extracorporeal mechanism
 // parameters, and those prefixed with 'p' are passive arm parameters.
 struct DavinciParameters
-{ 
+{
   double wristLength;
   double gripperLength;
 
@@ -81,11 +81,17 @@ public:
                            const std::vector<double>& q,
                            std::vector<Collisions::Cylisphere>* cylispheres) const;
 
+  // Get geometric primitives representing the passive extracorporeal
+  // mechanism
   void getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
                             const std::vector<double>& q,
                             std::vector<Collisions::Cylisphere>* cylispheres,
                             Collisions::Sphere* sphere) const;
 
+  // Get distances between all pairs of geometric primitives
+  // representing the robot's active mechanism, with the specified
+  // base frames for the arms, passive configurations, and target
+  // intracorporeal pose.
   double fullClearances(const Eigen::Matrix4d& baseFrameL,
                         const Eigen::Matrix4d& baseFrameR,
                         const std::vector<double>& qL,
@@ -97,6 +103,10 @@ public:
 
   DavinciParameters getParams() const;
 
+  // Given a probability distribution on a task frame, use the
+  // unscented transform to return an estimate of the mean and
+  // variance of the corresponding configurations for reaching the
+  // task frame distribution.
   void unscentedIK(const Eigen::Matrix4d& portFrame,
                    const Eigen::Matrix4d& meanTargetPose,
                    const Eigen::Vector3d& positionVariance,
@@ -104,6 +114,11 @@ public:
                    std::vector<double>* mean_qOut,
                    std::vector<double>* covariance_qOut) const;
 
+  // Given a probability distribution on a task frame, use the
+  // unscented transform to return an estimate of the mean and
+  // variance of the distances between all geometric primitives
+  // representing the robot's active mechanism for reaching that task
+  // frame distribution.
   void unscentedClearance(const Eigen::Matrix4d& baseFrameL,
                           const Eigen::Matrix4d& baseFrameR,
                           const std::vector<double>& qpL,
@@ -119,7 +134,7 @@ public:
 
   double getActiveJointMin(unsigned idx) const;
   double getActiveJointMax(unsigned idx) const;
-  
+
   void getDefaultPassiveConfig(std::vector<double>* q) const;
   void getDefaultActiveConfig(std::vector<double>* q) const;
 

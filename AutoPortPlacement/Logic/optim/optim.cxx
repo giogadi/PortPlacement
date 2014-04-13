@@ -71,37 +71,6 @@ namespace
                        Eigen::Matrix4d* baseFrameL,
                        Eigen::Matrix4d* baseFrameR) const;
   };
-
-  const double activeLowerBounds[] = {-boost::math::constants::pi<double>()/3,
-                                      -boost::math::constants::pi<double>()/3,
-                                      -boost::math::constants::pi<double>(),
-                                      0.0,
-                                      -boost::math::constants::pi<double>()/2,
-                                      -boost::math::constants::pi<double>()/2};
-
-  // For now I'm doing symmetric bounds, and making up a bound for the
-  // last joint. Accoring to Azimian's implementation, q[1]'s limit is
-  // actually pi/4, which is strange and should be checked up on.
-  const double  activeUpperBounds[] = {boost::math::constants::pi<double>()/3,
-                                       boost::math::constants::pi<double>()/3,
-                                       boost::math::constants::pi<double>(),
-                                       0.2,
-                                       boost::math::constants::pi<double>()/2,
-                                       boost::math::constants::pi<double>()/2};
-
-  const double passiveLowerBounds[] = {0.5,
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>()};
-
-  const double passiveUpperBounds[] = {1.0,
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>()};
 }
 
 bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
@@ -137,9 +106,6 @@ bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
   opt.add_inequality_mconstraint(&FeasiblePlanProblem::wrapIneq,
                                  (void*) &problem,
                                  ineqTol);
-
-  // Stop the optimization once we've found a point that satisfies the constraints (t <= 0)
-  // opt.set_stopval(0.0);
 
   // Stop the optimization after some seconds have passed no matter what
   opt.set_maxtime(300.0);
@@ -210,7 +176,7 @@ void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
                         &mean_q, &cov_q);
   for (unsigned i = 0; i < 6; ++i)
     {
-    double midpt = 0.5*(activeUpperBounds[i] - activeLowerBounds[i]);
+    double midpt = 0.5*(this->kin.getActiveJointMax(i) - this->kin.getActiveJointMin(i));
     (*c)[i] = fabs(mean_q[i] - midpt) + quantile*sqrt(cov_q[i]) - midpt;
     }
 }
@@ -249,7 +215,6 @@ void FeasiblePlanProblem::passiveClearConstraint(const Eigen::Matrix4d& baseFram
   this->kin.getPassivePrimitives(baseFrameL, qL, &cL, &sL[0]);
   this->kin.getPassivePrimitives(baseFrameR, qR, &cR, &sR[0]);
   double d = Collisions::distance(cL, sL, cR, sR);
-  // *c = exp(-d) - 1;
   *c = -d;
 }
 
@@ -337,8 +302,8 @@ void FeasiblePlanProblem::getBounds(std::vector<double>* lb,
 {
   for (unsigned i = 0; i < 6; ++i)
     {
-    (*lb)[i] = (*lb)[6+i] = passiveLowerBounds[i];
-    (*ub)[i] = (*ub)[6+i] = passiveUpperBounds[i];
+    (*lb)[i] = (*lb)[6+i] = this->kin.getPassiveJointMin(i);
+    (*ub)[i] = (*ub)[6+i] = this->kin.getPassiveJointMax(i);
     }
   for (unsigned i = 0; i < 3; ++i)
     {
@@ -361,8 +326,6 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at some points on port curve
-  // double curveParamL = 0.5;
-  // double curveParamR = 0.5;
   double curveParamL = uniDist(rng);
   double curveParamR = uniDist(rng);
   Eigen::Vector3d rcmL =
@@ -372,8 +335,10 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
   std::vector<double> qL(6), qR(6);
   for (unsigned i = 0; i < 6; ++i)
     {
-    qL[i] = passiveLowerBounds[i] + uniDist(rng)*(passiveUpperBounds[i] - passiveLowerBounds[i]);
-    qR[i] = passiveLowerBounds[i] + uniDist(rng)*(passiveUpperBounds[i] - passiveLowerBounds[i]);
+    qL[i] = this->kin.getPassiveJointMin(i) +
+      uniDist(rng)*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
+    qR[i] = this->kin.getPassiveJointMin(i) +
+      uniDist(rng)*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
     }
   kin.passiveIK(baseFrameL, rcmL, &qL);
   std::cout << "Left IK done!" << std::endl; // debug

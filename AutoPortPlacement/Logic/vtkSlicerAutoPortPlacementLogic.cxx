@@ -46,14 +46,9 @@ vtkStandardNewMacro(vtkSlicerAutoPortPlacementLogic);
 
 namespace
 {
-  // inline vtkTransToEigenMatrix(const vtkTransform& matrixVTK,
-  //                              Eigen::Matrix4d* matrixEigen)
-  // {
-  //   for (unsigned i = 0; i < 4; ++i)
-  //     for (unsigned j = 0; j < 4; ++j)
-  //       (*matrixEigen)(i,j) = (*(matrixVTK.GetMatrix()))[i][j];
-  // }
-
+  // Given a cylisphere returned by the DavinciKinematics object,
+  // returns a vtkMRMLLinearTransformNode that will transform the
+  // vtkCylinderSource's output to correspond to the input cylisphere.
   void cylisphereToTransformNode(const Collisions::Cylisphere& c,
                                  vtkSmartPointer<vtkMRMLLinearTransformNode> tNode)
   {
@@ -88,6 +83,9 @@ namespace
     tNode->ApplyTransformMatrix(t->GetMatrix());
   }
 
+  // Given a sphere returned by DavinciKinematics, generates a
+  // vtkMRMLLinearTransformNode that transforms the vtkSphereSource's
+  // output to correspond to the input sphere.
   void sphereToTransformNode(const Collisions::Sphere& s,
                              vtkSmartPointer<vtkMRMLLinearTransformNode> tNode)
   {
@@ -157,6 +155,7 @@ void vtkSlicerAutoPortPlacementLogic::RenderRobot()
 }
 
 //----------------------------------------------------------------------------
+// Initializes the models and transforms for visualizing the Davinci robot.
 void vtkSlicerAutoPortPlacementLogic::InitRobot()
 {
   std::vector<Collisions::Cylisphere> cylispheres;
@@ -166,7 +165,7 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
   Collisions::Cylisphere standCyl;
   standCyl.p1 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ);
   standCyl.p2 = Eigen::Vector3d(this->RobotBaseX, this->RobotBaseY, this->RobotBaseZ + 1.0);
-  standCyl.r = 0.07; // ugh
+  standCyl.r = 0.07; // Just a number that looks right.
   cylispheres.push_back(standCyl);
 
   Eigen::Matrix4d baseFrameL = Eigen::Matrix4d::Identity();
@@ -250,6 +249,9 @@ void vtkSlicerAutoPortPlacementLogic::InitRobot()
 }
 
 //---------------------------------------------------------------------------
+// Takes the robot's current robot base position and passive/active
+// left/right arm configurations and updates the robot visualization
+// correspondingly.
 void vtkSlicerAutoPortPlacementLogic::UpdateRobot()
 {
   std::vector<Collisions::Cylisphere> cylispheres;
@@ -314,13 +316,12 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
   vtkMRMLAnnotationROINode* robotBaseROI =
     vtkMRMLAnnotationROINode::SafeDownCast(robotBaseNode);
 
-  // Create a list of task frames from taskFramesFiducial
+  // Retrieve our task frames
   if (taskFramesFiducial->GetNumberOfFiducials() < 1)
     {
     vtkErrorMacro("FindFeasiblePlan: task frames node must have at least 1 fiducial!");
     return;
     }
-
   Optim::Matrix4dVec taskFrames;
   for (int tIdx = 0; tIdx < taskFramesFiducial->GetNumberOfFiducials(); ++tIdx)
     {
@@ -341,9 +342,6 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
       for (unsigned j = 0; j < 3; ++j)
         taskFrame(i,j) = rotMat[i][j];
 
-    std::cout << "Task Frame:" << std::endl;
-    std::cout << taskFrame << std::endl;
-
     taskFrames.push_back(taskFrame);
     }
 
@@ -353,7 +351,6 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     vtkErrorMacro("FindFeasiblePlan: Port curve points node must have at least 2 fiducials!");
     return;
     }
-
   Eigen::Vector3d portCurvePoints[2];
   for (unsigned pIdx = 0; pIdx < 2; ++pIdx)
     {
@@ -384,12 +381,6 @@ FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
     baseBoxMin(i) = (center[i] - radii[i]) / 1000.0; // mm -> m
     baseBoxMax(i) = (center[i] + radii[i]) / 1000.0; // mm -> m
     }
-
-  std::cout << "base box min:" << std::endl;
-  std::cout << baseBoxMin << std::endl;
-
-  std::cout << "base box max:" << std::endl;
-  std::cout << baseBoxMax << std::endl;
 
   // Find a feasible plan!
   std::vector<double> qL(6);

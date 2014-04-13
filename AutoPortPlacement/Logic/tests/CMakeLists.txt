@@ -18,10 +18,6 @@ add_executable(min-distance-test
   min-distance-test.cxx)
 target_link_libraries(min-distance-test collisions)
 
-# add_executable(passive-lr-optim-test
-#   passive-lr-optim-test.cxx)
-# target_link_libraries(passive-lr-optim-test optim)
-
 # add_executable(config-ut-test
 #   config-ut-test.cxx)
 # target_link_libraries(config-ut-test davinci)
@@ -35,6 +31,5 @@ add_test(daVinci_intra_ik_test intra-ik-test)
 add_test(daVinci_jacobian_test jacobian-test)
 add_test(daVinci_passive_ik_test da-vinci-passive-ik-test)
 add_test(collisions_distance_test min-distance-test)
-# add_test(passive_lr_optim_test passive-lr-optim-test)
 # add_test(config_ut_test config-ut-test)
 add_test(find_feasible_plan_test find-feasible-plan-test)

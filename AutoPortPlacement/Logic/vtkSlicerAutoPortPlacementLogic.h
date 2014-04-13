@@ -53,21 +53,43 @@ public:
   vtkTypeMacro(vtkSlicerAutoPortPlacementLogic, vtkSlicerModuleLogic);
   void PrintSelf(ostream& os, vtkIndent indent);
 
+  // For setting the rotation values of each joint in the robot's arm
   void SetPassiveLeftJoint(unsigned jointIdx, double value);
   void SetPassiveRightJoint(unsigned jointIdx, double value);
 
+  // Retrieve the current rotation values of each joint in the robot's
+  // arm
   double GetPassiveLeftJoint(unsigned jointIdx) const;
   double GetPassiveRightJoint(unsigned jointIdx) const;
 
+  // Get joint limits for each joint in the robot's arm (arms are
+  // symmetric)
   double GetPassiveJointMin(unsigned idx) const;
   double GetPassiveJointMax(unsigned idx) const;
 
+  // Render the current configuration of the robot as a set of
+  // cylinders and spheres
   void RenderRobot();
 
+  // Given:
+  //
+  // 1) a vtkMRMLMarkupsFiducialNode representing a list of task frames;
+  //
+  // 2) a vtkMRMLMarkupsFiducialNode representing the two endpoints of
+  // a line of potential port positions;
+  //
+  // 3) a vtkMRMLAnnotationROINode representing a bounding box of
+  // potential positions of the robot's base;
+  //
+  // Find a position for the robot base and configurations for the
+  // robot arms to access the given task frames through port positions
+  // lying on the potential port position curve. This method sets the
+  // robot's base and arm configurations to this found plan.
   void FindFeasiblePlan(vtkMRMLNode* taskFramesNode,
                         vtkMRMLNode* portCurvePointsNode,
                         vtkMRMLNode* robotBaseNode);
 
+  // Sets robot joint angles back to their default values.
   void ResetJointsToDefault();
 
 protected:
@@ -85,16 +107,22 @@ private:
   vtkSlicerAutoPortPlacementLogic(const vtkSlicerAutoPortPlacementLogic&); // Not implemented
   void operator=(const vtkSlicerAutoPortPlacementLogic&);               // Not implemented
 
+  // Computes the robot arms' positions based on their joint angles.
   DavinciKinematics* Kinematics;
 
   /// For rendering the collision primitives of the davinci
   vtkSmartPointer<vtkCylinderSource> CylinderSource;
   vtkSmartPointer<vtkSphereSource> SphereSource;
 
+  // Current position of the robot base
   double RobotBaseX;
   double RobotBaseY;
   double RobotBaseZ;
 
+  // Configurations of the robot arms, separated by their passive and
+  // active configurations. Note that the passive configurations are
+  // fixed during the procedure, and the active configuration is what
+  // moves the surgical tools inside the patient's body.
   std::vector<double> LeftPassiveConfig;
   std::vector<double> RightPassiveConfig;
   std::vector<double> LeftActiveConfig;
@@ -102,18 +130,6 @@ private:
 
   bool IsRobotInitialized;
 
-  // vtkTransform BaseFrame;
-
-  // class RobotNode
-  // {
-  // public:
-  //   std::vector<vtkSmartPointer<vtkMRMLModelNode> > ModelNodes;
-  //   std::vector<vtkSmartPointer<vtkPolyData> > PolyDataNodes;
-  //   std::vector<vtkSmartPointer<vtkMRMLModelDisplayNode > DisplayNodes;
-  //   std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > TransformNodes;
-  // }
-
-  // RobotNode DavinciNode;
   std::vector<vtkSmartPointer<vtkMRMLLinearTransformNode> > RobotTransformNodes;
 
   void InitRobot();

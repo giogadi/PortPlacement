@@ -10,14 +10,6 @@ namespace Optim
   typedef std::vector<Eigen::Matrix4d,
     Eigen::aligned_allocator<Eigen::Matrix4d> > Matrix4dVec;
 
-  bool findCollisionFreePassiveLR(const DavinciKinematics& kin,
-                                  const Eigen::Matrix4d& baseFrameL,
-                                  const Eigen::Matrix4d& baseFrameR,
-                                  const Eigen::Vector3d& rcmL,
-                                  const Eigen::Vector3d& rcmR,
-                                  std::vector<double>* qL,
-                                  std::vector<double>* qR);
-
   // Orientations of task frames are such that +x is the tip tangent,
   // +z is the last joint's axis
   bool findFeasiblePlan(const DavinciKinematics& kin,

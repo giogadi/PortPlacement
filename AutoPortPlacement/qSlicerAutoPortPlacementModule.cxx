@@ -77,7 +77,10 @@ QString qSlicerAutoPortPlacementModule::acknowledgementText()const
 QStringList qSlicerAutoPortPlacementModule::contributors()const
 {
   QStringList moduleContributors;
-  moduleContributors << QString("Jean-Christophe Fillion-Robin (Kitware)");
+  moduleContributors
+    << QString("Luis G. Torres (UNC-Chapel Hill)")
+    << QString("Hamidreza Azimian (Hospital for Sick Children)")
+    << QString("Andinet Enquobahrie (Kitware, Inc.)");
   return moduleContributors;
 }
 
@@ -90,7 +93,7 @@ QIcon qSlicerAutoPortPlacementModule::icon()const
 //-----------------------------------------------------------------------------
 QStringList qSlicerAutoPortPlacementModule::categories() const
 {
-  return QStringList() << "Examples";
+  return QStringList() << "IGT";
 }
 
 //-----------------------------------------------------------------------------

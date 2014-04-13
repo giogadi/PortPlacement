@@ -97,6 +97,7 @@ void qSlicerAutoPortPlacementModuleWidget::setup()
   this->RefreshConfigSliders();
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveComboChanged(int idx)
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -112,6 +113,7 @@ void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveComboChanged(int idx)
   d->LeftPassiveSlider->setValue(portLogic->GetPassiveLeftJoint(idx));
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onRightPassiveComboChanged(int idx)
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -127,6 +129,7 @@ void qSlicerAutoPortPlacementModuleWidget::onRightPassiveComboChanged(int idx)
   d->RightPassiveSlider->setValue(portLogic->GetPassiveRightJoint(idx));
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveSliderChanged(double value)
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -139,6 +142,7 @@ void qSlicerAutoPortPlacementModuleWidget::onLeftPassiveSliderChanged(double val
   portLogic->RenderRobot();
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onRightPassiveSliderChanged(double value)
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -151,6 +155,7 @@ void qSlicerAutoPortPlacementModuleWidget::onRightPassiveSliderChanged(double va
   portLogic->RenderRobot();
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onSpecComboBoxChanged()
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -163,6 +168,7 @@ void qSlicerAutoPortPlacementModuleWidget::onSpecComboBoxChanged()
   d->findSurgicalPlanButton->setEnabled(enabled);
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onFindSurgicalPlanButtonPressed()
 {
   Q_D(qSlicerAutoPortPlacementModuleWidget);
@@ -175,6 +181,7 @@ void qSlicerAutoPortPlacementModuleWidget::onFindSurgicalPlanButtonPressed()
                               d->robotBaseComboBox->currentNode());
 }
 
+//-----------------------------------------------------------------------------
 void qSlicerAutoPortPlacementModuleWidget::onResetConfigButtonPressed()
 {
   vtkSlicerAutoPortPlacementLogic *portLogic =

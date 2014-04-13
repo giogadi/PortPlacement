@@ -39,6 +39,8 @@ namespace
                                        boost::math::constants::pi<double>()/2,
                                        boost::math::constants::pi<double>()/2};
 
+  // Generate 4x4 transform matrix corresponding to a rotation of
+  // theta about the x-axis.
   Eigen::Matrix4d xRotation(double theta)
   {
     Eigen::Matrix4d R = Eigen::Matrix4d::Identity();
@@ -47,13 +49,15 @@ namespace
 
     R(1,1) = c;
     R(2,1) = s;
-  
+
     R(1,2) = -s;
     R(2,2) = c;
 
     return R;
   }
 
+  // Generate 4x4 transform matrix corresponding to a rotation of
+  // theta about the y-axis.
   Eigen::Matrix4d yRotation(double theta)
   {
     Eigen::Matrix4d R = Eigen::Matrix4d::Identity();
@@ -69,6 +73,8 @@ namespace
     return R;
   }
 
+  // Generate 4x4 transform matrix corresponding to a rotation of
+  // theta about the z-axis.
   Eigen::Matrix4d zRotation(double theta)
   {
     Eigen::Matrix4d R = Eigen::Matrix4d::Identity();
@@ -82,20 +88,22 @@ namespace
 
     return R;
   }
-}
 
-Eigen::Matrix4d getInverseTransform(const Eigen::Matrix4d& T)
-{
-  Eigen::Matrix3d R = T.topLeftCorner<3,3>();
-  Eigen::Vector3d p = T.topRightCorner<3,1>();
-  Eigen::Matrix4d T_inv;
-  T_inv.topLeftCorner<3,3>() = R.transpose();
-  T_inv.topRightCorner<3,1>() = -R.transpose()*p;
+  // Given a transformation matrix on SE(3), generate the inverse
+  // transformation.
+  Eigen::Matrix4d getInverseTransform(const Eigen::Matrix4d& T)
+  {
+    Eigen::Matrix3d R = T.topLeftCorner<3,3>();
+    Eigen::Vector3d p = T.topRightCorner<3,1>();
+    Eigen::Matrix4d T_inv;
+    T_inv.topLeftCorner<3,3>() = R.transpose();
+    T_inv.topRightCorner<3,1>() = -R.transpose()*p;
 
-  T_inv(3,0) = T_inv(3,1) = T_inv(3,2) = 0.0;
-  T_inv(3,3) = 1.0;
+    T_inv(3,0) = T_inv(3,1) = T_inv(3,2) = 0.0;
+    T_inv(3,3) = 1.0;
 
-  return T_inv;
+    return T_inv;
+  }
 }
 
 DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
@@ -108,7 +116,7 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
     std::cout << "Error in loading kinematics file: " << result.description() << std::endl;
     throw std::runtime_error("Kinematics file load error");
     }
-  
+
   pugi::xml_node intra = doc.child("davinci_parameters").child("intracorporeal");
   params_.wristLength = intra.child("wrist_length").text().as_double();
   params_.gripperLength = intra.child("gripper_length").text().as_double();
@@ -189,6 +197,9 @@ Eigen::Matrix4d DavinciKinematics::intraFK(const Eigen::Matrix4d& portFrame,
   return T;
 }
 
+// Direct, obscure implementation of the Davinci's forward
+// kinematics. Transcribed from a similarly obscure MATLAB
+// implementation.
 Eigen::Matrix4d DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q) const
 {
@@ -208,9 +219,9 @@ Eigen::Matrix4d DavinciKinematics::passiveFK(const Eigen::Matrix4d& baseFrame,
   double s6 = sin(q[5]);
 
   Eigen::Matrix4d T;
-  T << 
-    -s234*s5, 
-    0.5*s234*c5p6 - c234*s6 + 0.5*c5m6*s234, 
+  T <<
+    -s234*s5,
+    0.5*s234*c5p6 - c234*s6 + 0.5*c5m6*s234,
     0.5*s234*s5p6 + c234*c6 - 0.5*s5m6*s234,
     (52.0/125.0)*c234 + (17.0/40.0)*c23 + 0.419*c2 + 0.5*0.483*s234*s5p6 + 0.483*c234*c6 - 0.051*s234*s5 - 0.5*0.483*s5m6*s234 + 0.189,
 
@@ -240,10 +251,10 @@ void DavinciKinematics::intraIK(const Eigen::Matrix4d& portFrame,
   Eigen::Matrix3d R = pose.topLeftCorner<3,3>();
   Eigen::Vector3d p = pose.topRightCorner<3,1>();
   Eigen::Vector3d positionTrans = -R.transpose()*p;
-  double u = positionTrans(0); 
+  double u = positionTrans(0);
   double v = positionTrans(1);
   double w = positionTrans(2);
- 
+
   (*q)[5] = atan2(v, -u);
   double c5 = cos((*q)[5]);
   double s5 = sin((*q)[5]);
@@ -251,7 +262,7 @@ void DavinciKinematics::intraIK(const Eigen::Matrix4d& portFrame,
   double c4 = cos((*q)[4]);
   double s4 = sin((*q)[4]);
   (*q)[3] = (-params_.wristLength - u*c5 + v*s5)*c4 + w*s4;
-  
+
   Eigen::Matrix3d m;
   m(0,0) = c5*s4;  m(0,1) = -s5;  m(0,2) = c4*c5;
   m(1,0) = -s4*s5; m(1,1) = -c5;  m(1,2) = -c4*s5;
@@ -266,7 +277,7 @@ void DavinciKinematics::intraIK(const Eigen::Matrix4d& portFrame,
 
 // \TODO allow for specification of q0 evaluation if computed
 // beforehand
-Eigen::Matrix<double, 3, 6> 
+Eigen::Matrix<double, 3, 6>
 DavinciKinematics::passiveJacobian(const Eigen::Matrix4d& baseFrame,
                                    const std::vector<double>& q_in,
                                    double stepSize) const
@@ -290,7 +301,7 @@ DavinciKinematics::passiveJacobian(const Eigen::Matrix4d& baseFrame,
   return jacobian;
 }
 
-// Iteration step size calculation came from: 
+// Iteration step size calculation came from:
 // http://math.ucsd.edu.libproxy.lib.unc.edu/~sbuss/ResearchWeb/ikmethods/iksurvey.pdf
 //
 // TODO maybe try DLS from same paper
@@ -302,7 +313,7 @@ bool DavinciKinematics::passiveIK(const Eigen::Matrix4d& baseFrame,
   std::vector<double> q(6, 0.0);
   Eigen::Matrix<double,6,1> q_vec;
 
-  Eigen::Vector3d goalVec = 
+  Eigen::Vector3d goalVec =
     worldPosition - this->passiveFK(baseFrame, q).topRightCorner<3,1>();
   double error = goalVec.squaredNorm();
   unsigned iterations = 0;
@@ -313,7 +324,7 @@ bool DavinciKinematics::passiveIK(const Eigen::Matrix4d& baseFrame,
                                                                  q, stepSize);
     for (unsigned i = 0; i < 6; ++i)
       q_vec(i) = q[i];
-    
+
     Eigen::Vector3d JJTe = jacobian*jacobian.transpose()*goalVec;
     double step = goalVec.dot(JJTe) / JJTe.squaredNorm();
     q_vec += step*jacobian.transpose()*goalVec;
@@ -333,7 +344,7 @@ bool DavinciKinematics::passiveIK(const Eigen::Matrix4d& baseFrame,
     return false;
     }
   else
-    return true;  
+    return true;
 }
 
 void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
@@ -357,7 +368,7 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
   // instrument holder cylisphere
   Collisions::Cylisphere c_h;
   Eigen::Vector3d p2;
-  p2 << c1*s2, s1*s2, c2;  
+  p2 << c1*s2, s1*s2, c2;
   c_h.p1 = c_i.p2 - params_.el2*p2;
   c_h.p2 = c_h.p1 - params_.el3*p;
   c_h.r = params_.er2;
@@ -368,8 +379,8 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
   c_p.p2 = c_p.p1;
   c_p.p2(2) -= params_.el5;
   c_p.r = params_.er2;
-  
-  cylispheres->push_back(c_i); 
+
+  cylispheres->push_back(c_i);
   cylispheres->push_back(c_h);
   cylispheres->push_back(c_p);
 
@@ -383,6 +394,9 @@ void DavinciKinematics::getExtraCylispheres(const Eigen::Matrix4d& portFrame,
     }
 }
 
+// This terribly obscure and magic-number-filled implementation was
+// transcribed from a MATLAB implementation of the same. Please
+// forgive me
 void DavinciKinematics::getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
                                              const std::vector<double>& q,
                                              std::vector<Collisions::Cylisphere>* cylispheres,
@@ -511,9 +525,9 @@ void DavinciKinematics::unscentedIK(const Eigen::Matrix4d& portFrame,
     this->intraIK(portFrame, targetPose, &q);
     sigmaPoints.push_back(q);
     }
-  
+
   // Perturb orientation elements
-  double delta = sqrt(2*orientVariance(0));    
+  double delta = sqrt(2*orientVariance(0));
   Eigen::Matrix4d R = xRotation(delta);
   targetPose.noalias() = R*meanTargetPose;
   this->intraIK(portFrame, targetPose, &q);
@@ -543,7 +557,7 @@ void DavinciKinematics::unscentedIK(const Eigen::Matrix4d& portFrame,
   this->intraIK(portFrame, targetPose, &q);
   sigmaPoints.push_back(q);
   // end orientation perturbations
-  
+
   // get moments of transformed sigma points
   std::vector<double> mean_q(6, 0.0);
   for (unsigned i = 0; i < 12; ++i)
@@ -597,7 +611,7 @@ double DavinciKinematics::fullClearances(const Eigen::Matrix4d& baseFrameL,
   std::vector<Collisions::Cylisphere> cylL, cylR;
   std::vector<Collisions::Sphere> sL(1), sR(1);
   this->getPassivePrimitives(baseFrameL, qL, &cylL, &sL[0]);
-  this->getPassivePrimitives(baseFrameR, qR, &cylR, &sR[0]);  
+  this->getPassivePrimitives(baseFrameR, qR, &cylR, &sR[0]);
 
   std::vector<double> qaL(6);
   std::vector<double> qaR(6);
@@ -659,9 +673,9 @@ void DavinciKinematics::unscentedClearance(const Eigen::Matrix4d& baseFrameL,
     this->fullClearances(baseFrameL, baseFrameR, qpL, qpR, targetPose, &c);
     sigmaPoints.push_back(c);
     }
-  
+
   // Perturb orientation elements
-  double delta = sqrt(2*orientVariance(0));    
+  double delta = sqrt(2*orientVariance(0));
   Eigen::Matrix4d R = xRotation(delta);
   targetPose.noalias() = R*meanTargetPose;
   c.clear();
@@ -729,6 +743,16 @@ double DavinciKinematics::getPassiveJointMin(unsigned idx) const
 double DavinciKinematics::getPassiveJointMax(unsigned idx) const
 {
   return passiveUpperBounds[idx];
+}
+
+double DavinciKinematics::getActiveJointMin(unsigned idx) const
+{
+  return activeLowerBounds[idx];
+}
+
+double DavinciKinematics::getActiveJointMax(unsigned idx) const
+{
+  return activeUpperBounds[idx];
 }
 
 void DavinciKinematics::getDefaultPassiveConfig(std::vector<double>* q) const
