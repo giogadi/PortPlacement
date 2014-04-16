@@ -5,5 +5,6 @@ include_directories(${nlopt_INCLUDE_DIRS})
 add_library(optim optim.cxx)
 
 target_link_libraries(optim
+  ${VTK_LIBRARIES}
   davinci
   nlopt)

@@ -6,10 +6,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include <boost/math/distributions/normal.hpp>
-#include <boost/math/constants/constants.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_01.hpp>
+#include <vtkMinimalStandardRandomSequence.h>
+#include <vtkNew.h>
 
 namespace
 {
@@ -71,6 +69,59 @@ namespace
                        Eigen::Matrix4d* baseFrameL,
                        Eigen::Matrix4d* baseFrameR) const;
   };
+
+  // http://www.quantstart.com/articles/Statistical-Distributions-in-C
+  double gaussianQuantile(double quantile)
+  {
+    static double a[4] = {   2.50662823884,
+                             -18.61500062529,
+                             41.39119773534,
+                             -25.44106049637};
+
+    static double b[4] = {  -8.47351093090,
+                            23.08336743743,
+                            -21.06224101826,
+                            3.13082909833};
+
+    static double c[9] = {0.3374754822726147,
+                          0.9761690190917186,
+                          0.1607979714918209,
+                          0.0276438810333863,
+                          0.0038405729373609,
+                          0.0003951896511919,
+                          0.0000321767881768,
+                          0.0000002888167364,
+                          0.0000003960315187};
+
+    if (quantile >= 0.5 && quantile <= 0.92)
+      {
+      double num = 0.0;
+      double denom = 1.0;
+
+      for (int i=0; i<4; i++)
+        {
+        num += a[i] * pow((quantile - 0.5), 2*i + 1);
+        denom += b[i] * pow((quantile - 0.5), 2*i);
+        }
+      return num/denom;
+
+      }
+    else if (quantile > 0.92 && quantile < 1)
+      {
+      double num = 0.0;
+
+      for (int i=0; i<9; i++)
+        {
+        num += c[i] * pow((log(-log(1-quantile))), i);
+        }
+      return num;
+
+      }
+    else
+      {
+      return -1.0*gaussianQuantile(1-quantile);
+      }
+  }
 }
 
 bool Optim::findFeasiblePlan(const DavinciKinematics& kin,
@@ -168,8 +219,7 @@ void FeasiblePlanProblem::ikConstraint(const Eigen::Matrix4d& portFrame,
   const double POSITION_VARIANCE = 1e-6;
   const double ORIENTATION_VARIANCE = 1e-6;
   const double CHANCE_CONSTRAINT = 0.1;
-  boost::math::normal n;
-  double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
+  double quantile = gaussianQuantile(1 - CHANCE_CONSTRAINT);
   this->kin.unscentedIK(portFrame, taskFrame,
                         Eigen::Vector3d::Constant(POSITION_VARIANCE),
                         Eigen::Vector3d::Constant(ORIENTATION_VARIANCE),
@@ -191,8 +241,7 @@ void FeasiblePlanProblem::activeClearConstraint(const std::vector<double>& qpL,
   const double POSITION_VARIANCE = 1e-6;
   const double ORIENTATION_VARIANCE = 1e-6;
   const double CHANCE_CONSTRAINT = 0.1;
-  boost::math::normal n;
-  double quantile = boost::math::quantile(n, 1 - CHANCE_CONSTRAINT);
+  double quantile = gaussianQuantile(1 - CHANCE_CONSTRAINT);
   std::vector<double> mean_c, cov_c;
   this->kin.unscentedClearance(baseFrameL, baseFrameR, qpL, qpR, taskFrame,
                                Eigen::Vector3d::Constant(POSITION_VARIANCE),
@@ -321,13 +370,14 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
   Eigen::Matrix4d baseFrameL, baseFrameR;
   this->getBaseFrames(baseBoxCenter, &baseFrameL, &baseFrameR);
 
-  boost::mt19937 rng(3);
-  boost::uniform_01<> uniDist;
+  vtkNew<vtkMinimalStandardRandomSequence> rng;
 
   // Use Jacobian IK to find a nice initial guess
   // Place RCM's at some points on port curve
-  double curveParamL = uniDist(rng);
-  double curveParamR = uniDist(rng);
+  rng->Next();
+  double curveParamL = rng->GetValue();
+  rng->Next();
+  double curveParamR = rng->GetValue();;
   Eigen::Vector3d rcmL =
     this->portCurvePoint1 + curveParamL*(this->portCurvePoint2 - this->portCurvePoint1);
   Eigen::Vector3d rcmR =
@@ -335,10 +385,12 @@ void FeasiblePlanProblem::getInitialGuessIK(std::vector<double>* x) const
   std::vector<double> qL(6), qR(6);
   for (unsigned i = 0; i < 6; ++i)
     {
+    rng->Next();
     qL[i] = this->kin.getPassiveJointMin(i) +
-      uniDist(rng)*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
+      rng->GetValue()*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
+    rng->Next();
     qR[i] = this->kin.getPassiveJointMin(i) +
-      uniDist(rng)*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
+      rng->GetValue()*(this->kin.getPassiveJointMax(i) - this->kin.getPassiveJointMin(i));
     }
   kin.passiveIK(baseFrameL, rcmL, &qL);
   std::cout << "Left IK done!" << std::endl; // debug
