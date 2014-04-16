@@ -424,7 +424,7 @@ void FeasiblePlanProblem::outputStateProperties(std::ostream& out,
   out << "f(x): " << FeasiblePlanProblem::feasibleMinimaxObj(x, dummy, (void*) this)  << std::endl;
 
   double* c_ineq = new double[this->getNumConstraints()];
-  double x_array[this->getNumVariables()];
+  double* x_array = new double[this->getNumVariables()];
   for (unsigned i = 0; i < this->getNumVariables(); ++i)
     x_array[i] = x[i];
   FeasiblePlanProblem::wrapIneq(this->getNumConstraints(), c_ineq, this->getNumVariables(), x_array, 0, (void*) this);
@@ -456,7 +456,8 @@ void FeasiblePlanProblem::outputStateProperties(std::ostream& out,
     out << " " << x[12+i];
   out << std::endl;
 
-  delete c_ineq;
+  delete [] c_ineq;
+  delete [] x_array;
 }
 
 unsigned FeasiblePlanProblem::getNumVariables() const
