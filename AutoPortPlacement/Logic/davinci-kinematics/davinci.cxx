@@ -4,40 +4,40 @@
 #include <pugixml.hpp>
 #include <stdexcept>
 
-#include <boost/math/constants/constants.hpp>
+#include <vtkMath.h>
 
 namespace
 {
   const double passiveLowerBounds[] = {0.5,
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>(),
-                                       -(2.0/3.0)*boost::math::constants::pi<double>()};
+                                       -(2.0/3.0)*vtkMath::DoublePi(),
+                                       -(2.0/3.0)*vtkMath::DoublePi(),
+                                       -(2.0/3.0)*vtkMath::DoublePi(),
+                                       -(2.0/3.0)*vtkMath::DoublePi(),
+                                       -(2.0/3.0)*vtkMath::DoublePi()};
 
   const double passiveUpperBounds[] = {1.0,
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>(),
-                                       (2.0/3.0)*boost::math::constants::pi<double>()};
+                                       (2.0/3.0)*vtkMath::DoublePi(),
+                                       (2.0/3.0)*vtkMath::DoublePi(),
+                                       (2.0/3.0)*vtkMath::DoublePi(),
+                                       (2.0/3.0)*vtkMath::DoublePi(),
+                                       (2.0/3.0)*vtkMath::DoublePi()};
 
-  const double activeLowerBounds[] = {-boost::math::constants::pi<double>()/3,
-                                      -boost::math::constants::pi<double>()/3,
-                                      -boost::math::constants::pi<double>(),
+  const double activeLowerBounds[] = {-vtkMath::DoublePi()/3,
+                                      -vtkMath::DoublePi()/3,
+                                      -vtkMath::DoublePi(),
                                       0.0,
-                                      -boost::math::constants::pi<double>()/2,
-                                      -boost::math::constants::pi<double>()/2};
+                                      -vtkMath::DoublePi()/2,
+                                      -vtkMath::DoublePi()/2};
 
   // For now I'm doing symmetric bounds, and making up a bound for the
   // last joint. Accoring to Azimian's implementation, q[1]'s limit is
   // actually pi/4, which is strange and should be checked up on.
-  const double  activeUpperBounds[] = {boost::math::constants::pi<double>()/3,
-                                       boost::math::constants::pi<double>()/3,
-                                       boost::math::constants::pi<double>(),
+  const double  activeUpperBounds[] = {vtkMath::DoublePi()/3,
+                                       vtkMath::DoublePi()/3,
+                                       vtkMath::DoublePi(),
                                        0.2,
-                                       boost::math::constants::pi<double>()/2,
-                                       boost::math::constants::pi<double>()/2};
+                                       vtkMath::DoublePi()/2,
+                                       vtkMath::DoublePi()/2};
 
   // Generate 4x4 transform matrix corresponding to a rotation of
   // theta about the x-axis.
