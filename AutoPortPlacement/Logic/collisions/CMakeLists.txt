@@ -1,1 +1,3 @@
-add_library(collisions collisions.cxx)
+add_library(collisions STATIC collisions.cxx)
+
+
