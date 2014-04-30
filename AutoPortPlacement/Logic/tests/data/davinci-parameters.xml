@@ -1,0 +1,18 @@
+<davinci_parameters>
+  <intracorporeal>
+    <wrist_length>0.008</wrist_length>
+    <gripper_length>0.01</gripper_length>
+  </intracorporeal>
+  <extracorporeal>
+    <!-- dimensions of active mechanism -->
+    <l1>0.126</l1> <!-- distance between RCM and first point (p1 in thesis) -->
+    <l2>0.04</l2> <!-- offset between instrument and holder in z direction -->
+    <l3>0.445</l3> <!-- length of instrument holder -->
+    <l4>0.043</l4> <!-- offset between holder's control point and parallelogram point -->
+    <l5>0.52</l5> <!-- length of parallelogram -->
+    <!-- radius of cylisphere representing instrument -->
+    <r1>0.005</r1>
+    <!-- radius of cylisphere representing instrument holder and parallelogram -->
+    <r2>0.05</r2>
+  </extracorporeal>
+</davinci_parameters>

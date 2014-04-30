@@ -1,0 +1,145 @@
+#ifndef DAVINCI_KINEMATICS_H
+#define DAVINCI_KINEMATICS_H
+
+#include <Eigen/Dense>
+#include <Eigen/StdVector>
+
+#include <vector>
+
+#include <collisions/collisions.h>
+
+// Attributes prefixed with 'e' are extracorporeal mechanism
+// parameters, and those prefixed with 'p' are passive arm parameters.
+struct DavinciParameters
+{
+  double wristLength;
+  double gripperLength;
+
+  // dimensions of active mechanism
+  double el1; // distance between RCM and first point
+  double el2; // offset between instrument and holder in z direction
+  double el3; // length of instrument holder
+  double el4; // offset between holder's control point and parallelogram point
+  double el5; // length of parallelogram
+
+  // radii for collision primitives
+  double er1; // radius of cylisphere representing instrument
+  double er2; // radius of cylisphere representing instrument holder and parallelogram
+};
+
+class DavinciKinematics
+{
+public:
+  DavinciKinematics(const std::string& inputFilename=std::string("@DAVINCI_PARAMS_FILE@"));
+
+  // Get frame at the end of the wrist (base of the gripper) given the
+  // pose of the RCM and configuration q.
+  //
+  // Port frame is positioned at RCM of the instrument mechanism with
+  // the pose as follows (at home position, i.e. all rotations zero):
+  // +x : "up" the instrument from the RCM
+  // +z : "forward" from mechanism's perspective, along double parallelogram
+  Eigen::Matrix4d intraFK(const Eigen::Matrix4d& portFrame,
+                          const std::vector<double>& q) const;
+
+  // Get frame of the RCM at the end of a passive section with a given
+  // baseFrame and configuration q.
+  //
+  // Where (0,0,0) is on the floor at the center of the entire da
+  // Vinci's base, baseFrame's (x,y) is positioned so that the
+  // z-component is centered at the first prismatic axis of motion
+  // (therefore x-y will vary for each arm), and the z-component is 0.
+  Eigen::Matrix4d passiveFK(const Eigen::Matrix4d& baseFrame,
+                            const std::vector<double>& q) const;
+
+  // Given that the intracorporeal mechanism is placed such that its
+  // RCM is at portFrame, and given a goal pose worldPose for the
+  // wrist, find the configuration q which gets us there.
+  //
+  // \TODO Give 5D IK a try (use azimian's code from daVinci_IK.m)
+  void intraIK(const Eigen::Matrix4d& portFrame,
+               const Eigen::Matrix4d& worldPose,
+               std::vector<double>* q) const;
+
+  // Given the frame of the base of the robot and a configuration,
+  // compute robot's positional Jacobian.
+  //
+  // Currently uses finite differences.
+  Eigen::Matrix<double, 3, 6> passiveJacobian(const Eigen::Matrix4d& baseFrame,
+                                              const std::vector<double>& q,
+                                              double stepSize) const;
+
+  // \TODO allow specification of tolerance for error in IK solution
+  bool passiveIK(const Eigen::Matrix4d& baseFrame,
+                 const Eigen::Vector3d& worldPosition,
+                 std::vector<double>* q,
+                 double stepSize=0.001) const;
+
+  // Get geometric primitives representing the active extracorporeal
+  // mechanism
+  void getExtraCylispheres(const Eigen::Matrix4d& portFrame,
+                           const std::vector<double>& q,
+                           std::vector<Collisions::Cylisphere>* cylispheres) const;
+
+  // Get geometric primitives representing the passive extracorporeal
+  // mechanism
+  void getPassivePrimitives(const Eigen::Matrix4d& baseFrame,
+                            const std::vector<double>& q,
+                            std::vector<Collisions::Cylisphere>* cylispheres,
+                            Collisions::Sphere* sphere) const;
+
+  // Get distances between all pairs of geometric primitives
+  // representing the robot's active mechanism, with the specified
+  // base frames for the arms, passive configurations, and target
+  // intracorporeal pose.
+  double fullClearances(const Eigen::Matrix4d& baseFrameL,
+                        const Eigen::Matrix4d& baseFrameR,
+                        const std::vector<double>& qL,
+                        const std::vector<double>& qR,
+                        const Eigen::Matrix4d& targetPose,
+                        std::vector<double>* dists) const;
+
+  unsigned numActiveClearances() const;
+
+  DavinciParameters getParams() const;
+
+  // Given a probability distribution on a task frame, use the
+  // unscented transform to return an estimate of the mean and
+  // variance of the corresponding configurations for reaching the
+  // task frame distribution.
+  void unscentedIK(const Eigen::Matrix4d& portFrame,
+                   const Eigen::Matrix4d& meanTargetPose,
+                   const Eigen::Vector3d& positionVariance,
+                   const Eigen::Vector3d& orientVariance,
+                   std::vector<double>* mean_qOut,
+                   std::vector<double>* covariance_qOut) const;
+
+  // Given a probability distribution on a task frame, use the
+  // unscented transform to return an estimate of the mean and
+  // variance of the distances between all geometric primitives
+  // representing the robot's active mechanism for reaching that task
+  // frame distribution.
+  void unscentedClearance(const Eigen::Matrix4d& baseFrameL,
+                          const Eigen::Matrix4d& baseFrameR,
+                          const std::vector<double>& qpL,
+                          const std::vector<double>& qpR,
+                          const Eigen::Matrix4d& meanTargetPose,
+                          const Eigen::Vector3d& positionVariance,
+                          const Eigen::Vector3d& orientVariance,
+                          std::vector<double>* mean_clearance,
+                          std::vector<double>* cov_clearance) const;
+
+  double getPassiveJointMin(unsigned idx) const;
+  double getPassiveJointMax(unsigned idx) const;
+
+  double getActiveJointMin(unsigned idx) const;
+  double getActiveJointMax(unsigned idx) const;
+
+  void getDefaultPassiveConfig(std::vector<double>* q) const;
+  void getDefaultActiveConfig(std::vector<double>* q) const;
+
+private:
+  DavinciParameters params_;
+};
+
+#endif

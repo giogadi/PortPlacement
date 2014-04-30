@@ -16,6 +16,7 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 add_subdirectory(PortPlacement)
+add_subdirectory(AutoPortPlacement)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_CPACK})
