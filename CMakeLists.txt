@@ -10,6 +10,11 @@ set(EXTENSION_DESCRIPTION "Assists in the planning of surgical port placement in
 set(EXTENSION_ICONURL "http://viewvc.slicer.org/viewvc.cgi/Slicer4/trunk/Extensions/Testing/PortPlacement/PortPlacement.png?revision=21747&view=co")
 set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/e/e2/Slicer-r19441-PortPlacement-screenshot.png")
 
+#
+# Implementation agnostic fPIC
+#
+set( CMAKE_POSITION_INDEPENDENT_CODE ON )
+
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
