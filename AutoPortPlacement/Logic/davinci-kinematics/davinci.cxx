@@ -1,7 +1,9 @@
 #include <davinci-kinematics/davinci.h>
 #include <cmath>
 #include <iostream>
-#include <pugixml.hpp>
+
+#include <itkDOMNodeXMLReader.h>
+
 #include <stdexcept>
 
 #include <vtkMath.h>
@@ -108,27 +110,165 @@ namespace
 
 DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
 {
-  pugi::xml_document doc;
-  pugi::xml_parse_result result = doc.load_file(inputFilename.c_str());
 
-  if (!result)
+  itk::DOMNodeXMLReader::Pointer reader = itk::DOMNodeXMLReader::New();
+  reader->SetFileName( inputFilename.c_str() );
+
+  try
     {
-    std::cout << "Error in loading kinematics file: " << result.description() << std::endl;
-    throw std::runtime_error("Kinematics file load error");
+    // read a DOM object from an XML file
+    reader->Update();
+    }
+  catch ( const itk::ExceptionObject& eo )
+    {
+    eo.Print( std::cerr );
+    }
+  catch ( ... )
+    {
+    std::cerr << "Unknown exception caught!" << std::endl;
     }
 
-  pugi::xml_node intra = doc.child("davinci_parameters").child("intracorporeal");
-  params_.wristLength = intra.child("wrist_length").text().as_double();
-  params_.gripperLength = intra.child("gripper_length").text().as_double();
 
-  pugi::xml_node extra = doc.child("davinci_parameters").child("extracorporeal");
-  params_.el1 = extra.child("l1").text().as_double();
-  params_.el2 = extra.child("l2").text().as_double();
-  params_.el3 = extra.child("l3").text().as_double();
-  params_.el4 = extra.child("l4").text().as_double();
-  params_.el5 = extra.child("l5").text().as_double();
-  params_.er1 = extra.child("r1").text().as_double();
-  params_.er2 = extra.child("r2").text().as_double();
+  itk::DOMNode::Pointer dom = reader->GetModifiableOutput();
+
+  itk::DOMNode::Pointer davinciParametersIntracorporeal = dom->Find("intracorporeal");
+
+  if ( (itk::DOMNode*)davinciParametersIntracorporeal != 0 )
+    {
+    itk::DOMNode::Pointer wristLengthDOM = davinciParametersIntracorporeal->GetChild("wrist_length");
+    std::string wristLengthString = wristLengthDOM->GetTextChild()->GetText();
+    double wristLength = atof(wristLengthString.c_str());
+    std::cout << "WristLength=" << wristLength << std::endl;
+    params_.wristLength = wristLength;
+
+    itk::DOMNode::Pointer gripperLengthDOM = davinciParametersIntracorporeal->GetChild("gripper_length");
+    std::string gripperLengthString = gripperLengthDOM->GetTextChild()->GetText();
+    double gripperLength = atof(gripperLengthString.c_str());
+    std::cout << "GripperLength=" << gripperLength << std::endl;
+    params_.gripperLength = gripperLength;
+    }
+  else
+    {
+    std::cerr <<"Could not find intracorporeal parameters" << std::endl; 
+    }
+
+
+  itk::DOMNode::Pointer davinciParametersExtracorporeal = dom->Find("extracorporeal");
+
+  if ( (itk::DOMNode*)davinciParametersIntracorporeal != 0 )
+    {
+
+    itk::DOMNode::Pointer l1DOM = davinciParametersExtracorporeal->GetChild("l1");
+    double l1=0.0;
+
+    if ( (itk::DOMNode*)l1DOM != 0 )
+      {
+      std::string l1String = l1DOM->GetTextChild()->GetText();
+      l1= atof(l1String.c_str());
+      std::cout << "l1=" << l1 << std::endl;
+      }
+    else
+      {
+      std::cerr << "l1 not specified" << std::endl;
+      }
+    params_.el1 = l1;
+
+    itk::DOMNode::Pointer l2DOM = davinciParametersExtracorporeal->GetChild("l2");
+    double l2=0.0; 
+    if ( (itk::DOMNode*)l2DOM != 0 )
+      {
+      std::string l2String = l2DOM->GetTextChild()->GetText();
+      l2= atof(l2String.c_str());
+      std::cout << "l2=" << l2 << std::endl;
+      }
+    else
+      {
+      std::cerr << "l2 not specified" << std::endl;
+      }
+    params_.el2 = l2;
+
+    itk::DOMNode::Pointer l3DOM = davinciParametersExtracorporeal->GetChild("l3");
+    double l3=0.0;
+
+    if ( (itk::DOMNode*)l3DOM != 0 )
+      {
+      std::string l3String = l3DOM->GetTextChild()->GetText();
+      l3= atof(l3String.c_str());
+      std::cout << "l3=" << l3 << std::endl;
+      }
+    else
+      {
+      std::cerr << "l3 is not specified" << std::endl;
+      }
+    params_.el3 = l3;
+
+
+    itk::DOMNode::Pointer l4DOM = davinciParametersExtracorporeal->GetChild("l4");
+    double l4=0.0;
+
+    if ( (itk::DOMNode*)l4DOM != 0 )
+      {
+      std::string l4String = l4DOM->GetTextChild()->GetText();
+      l4= atof(l4String.c_str());
+      std::cout << "l4=" << l4 << std::endl;
+      }
+    else
+      {
+      std::cerr << "l4 is not specified" << std::endl;
+      }
+    params_.el4 = l4;
+
+    itk::DOMNode::Pointer l5DOM = davinciParametersExtracorporeal->GetChild("l5");
+    double l5=0.0;
+
+    if ( (itk::DOMNode*)l5DOM != 0 )
+      {
+      std::string l5String = l5DOM->GetTextChild()->GetText();
+      l5= atof(l5String.c_str());
+      std::cout << "l5=" << l5 << std::endl;
+      }
+    else
+      {
+      std::cerr << "l5 is not specified" << std::endl;
+      }
+    params_.el5 = l5;
+
+    double r1=0.0;
+    itk::DOMNode::Pointer r1DOM = davinciParametersExtracorporeal->GetChild("r1");
+
+    if ( (itk::DOMNode*)r1DOM != 0 )
+      {
+      std::string r1String = r1DOM->GetTextChild()->GetText();
+      r1= atof(r1String.c_str());
+      std::cout << "r1=" << r1 << std::endl;
+      }
+    else
+      {
+      std::cerr << "radius1 not specified" << std::endl;
+      }
+    params_.er1 = r1;
+
+
+    double r2=0.0;
+    itk::DOMNode::Pointer r2DOM = davinciParametersExtracorporeal->GetChild("r2");
+    
+    if ( (itk::DOMNode*)r2DOM != 0 )
+      {
+      std::string r2String = r2DOM->GetTextChild()->GetText();
+      r2= atof(r2String.c_str());
+      std::cout << "r2=" << r2 << std::endl;
+      }
+    else
+      {
+      std::cerr << "radius2 not specified" << std::endl;
+      }
+    params_.er2 = r2;
+
+    }
+  else
+    {
+    std::cerr << "Couldn't find extracorporeal parameter in the xml file" << std::endl;
+    }
 }
 
 // \TODO reduce number of intermediate matrices for optimization
