@@ -10,7 +10,7 @@
 
 namespace
 {
-  const double passiveLowerBounds[] = {0.5,
+  const double passiveLowerBounds[] = {0.0,
                                        -(2.0/3.0)*vtkMath::DoublePi(),
                                        -(2.0/3.0)*vtkMath::DoublePi(),
                                        -(2.0/3.0)*vtkMath::DoublePi(),
@@ -149,7 +149,7 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
     }
   else
     {
-    std::cerr <<"Could not find intracorporeal parameters" << std::endl; 
+    std::cerr <<"Could not find intracorporeal parameters" << std::endl;
     }
 
 
@@ -174,7 +174,7 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
     params_.el1 = l1;
 
     itk::DOMNode::Pointer l2DOM = davinciParametersExtracorporeal->GetChild("l2");
-    double l2=0.0; 
+    double l2=0.0;
     if ( (itk::DOMNode*)l2DOM != 0 )
       {
       std::string l2String = l2DOM->GetTextChild()->GetText();
@@ -251,7 +251,7 @@ DavinciKinematics::DavinciKinematics(const std::string& inputFilename)
 
     double r2=0.0;
     itk::DOMNode::Pointer r2DOM = davinciParametersExtracorporeal->GetChild("r2");
-    
+
     if ( (itk::DOMNode*)r2DOM != 0 )
       {
       std::string r2String = r2DOM->GetTextChild()->GetText();
