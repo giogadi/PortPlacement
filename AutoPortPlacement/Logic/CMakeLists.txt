@@ -15,11 +15,9 @@ set(nlopt_include_directory "" CACHE PATH "directory where the nlopt.h file is l
     include_directories( ${nlopt_include_directory} )
   endif()
 
-set(nlopt_library_directory "" CACHE PATH "directory where the nlopt library is located")
-  if(nlopt_library_directory STREQUAL "")
-    message( FATAL_ERROR "please set the nlopt_library_directory variable value.")
-  else()
-    link_directories( ${nlopt_library_directory} )
+set(nlopt_library "" CACHE FILEPATH "nlopt library ")
+  if(nlopt_library STREQUAL "")
+    message( FATAL_ERROR "please set the nlopt_library variable value.")
   endif()
 
 set(KIT ${PROJECT_NAME})
