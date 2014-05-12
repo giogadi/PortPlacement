@@ -1,7 +1,10 @@
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 2.8.9)
 
-# find_package(Slicer COMPONENTS ConfigurePrerequisites)
+if(NOT DEFINED CMAKE_MACOSX_RPATH)
+  set(CMAKE_MACOSX_RPATH OFF)
+endif()
 
+#-----------------------------------------------------------------------------
 project(AutoPortPlacementModuleProject)
 
 #-----------------------------------------------------------------------------
@@ -13,7 +16,6 @@ string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
-
 
 add_subdirectory(Logic)
 

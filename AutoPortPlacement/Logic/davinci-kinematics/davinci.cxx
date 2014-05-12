@@ -11,35 +11,35 @@
 namespace
 {
   const double passiveLowerBounds[] = {0.0,
-                                       -(2.0/3.0)*vtkMath::DoublePi(),
-                                       -(2.0/3.0)*vtkMath::DoublePi(),
-                                       -(2.0/3.0)*vtkMath::DoublePi(),
-                                       -(2.0/3.0)*vtkMath::DoublePi(),
-                                       -(2.0/3.0)*vtkMath::DoublePi()};
+                                       -(4.0/3.0)*vtkMath::Pi(),
+                                       -(4.0/3.0)*vtkMath::Pi(),
+                                       -(4.0/3.0)*vtkMath::Pi(),
+                                       -(4.0/3.0)*vtkMath::Pi(),
+                                       -(4.0/3.0)*vtkMath::Pi()};
 
   const double passiveUpperBounds[] = {1.0,
-                                       (2.0/3.0)*vtkMath::DoublePi(),
-                                       (2.0/3.0)*vtkMath::DoublePi(),
-                                       (2.0/3.0)*vtkMath::DoublePi(),
-                                       (2.0/3.0)*vtkMath::DoublePi(),
-                                       (2.0/3.0)*vtkMath::DoublePi()};
+                                       (4.0/3.0)*vtkMath::Pi(),
+                                       (4.0/3.0)*vtkMath::Pi(),
+                                       (4.0/3.0)*vtkMath::Pi(),
+                                       (4.0/3.0)*vtkMath::Pi(),
+                                       (4.0/3.0)*vtkMath::Pi()};
 
-  const double activeLowerBounds[] = {-vtkMath::DoublePi()/3,
-                                      -vtkMath::DoublePi()/3,
-                                      -vtkMath::DoublePi(),
+  const double activeLowerBounds[] = {-(2.0/3.0)*vtkMath::Pi(),
+                                      -(2.0/3.0)*vtkMath::Pi(),
+                                      -2.0*vtkMath::Pi(),
                                       0.0,
-                                      -vtkMath::DoublePi()/2,
-                                      -vtkMath::DoublePi()/2};
+                                      -vtkMath::Pi(),
+                                      -vtkMath::Pi()};
 
   // For now I'm doing symmetric bounds, and making up a bound for the
   // last joint. Accoring to Azimian's implementation, q[1]'s limit is
   // actually pi/4, which is strange and should be checked up on.
-  const double  activeUpperBounds[] = {vtkMath::DoublePi()/3,
-                                       vtkMath::DoublePi()/3,
-                                       vtkMath::DoublePi(),
+  const double  activeUpperBounds[] = {(2.0/3.0)*vtkMath::Pi(),
+                                       (2.0/3.0)*vtkMath::Pi(),
+                                       2.0*vtkMath::Pi(),
                                        0.2,
-                                       vtkMath::DoublePi()/2,
-                                       vtkMath::DoublePi()/2};
+                                       vtkMath::Pi(),
+                                       vtkMath::Pi()};
 
   // Generate 4x4 transform matrix corresponding to a rotation of
   // theta about the x-axis.

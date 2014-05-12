@@ -1,31 +1,28 @@
+cmake_minimum_required(VERSION 2.8.9)
+
+if(NOT DEFINED CMAKE_MACOSX_RPATH)
+  set(CMAKE_MACOSX_RPATH OFF)
+endif()
+
+#-----------------------------------------------------------------------------
 project(vtkSlicer${MODULE_NAME}ModuleLogic)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake
   ${CMAKE_MODULE_PATH})
 
-# we need Eigen for parts of this logic
 find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
-
-set(nlopt_include_directory "" CACHE PATH "directory where the nlopt.h file is located")
-  if(nlopt_include_directory STREQUAL "")
-    message( FATAL_ERROR "please set the nlopt_include_directory variable value.")
-  else()
-    include_directories( ${nlopt_include_directory} )
-  endif()
-
-set(nlopt_library "" CACHE FILEPATH "nlopt library ")
-  if(nlopt_library STREQUAL "")
-    message( FATAL_ERROR "please set the nlopt_library variable value.")
-  endif()
+find_package(NLopt REQUIRED)
 
 set(KIT ${PROJECT_NAME})
 
 set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_LOGIC_EXPORT")
 
 set(${KIT}_INCLUDE_DIRECTORIES
+  ${EIGEN3_INCLUDE_DIR}
+  ${NLopt_INCLUDE_DIRS}
   )
+include_directories(${${KIT}_INCLUDE_DIRECTORIES})
 
 set(${KIT}_SRCS
   vtkSlicer${MODULE_NAME}Logic.cxx
@@ -33,11 +30,14 @@ set(${KIT}_SRCS
   )
 
 set(${KIT}_TARGET_LIBRARIES
-  ${ITK_LIBRARIES}
+  collisions
   davinci
+  ${ITK_LIBRARIES}
+  ${NLopt_LIBRARIES}
   optim
-  vtkSlicerMarkupsModuleMRML
   vtkSlicerAnnotationsModuleMRML
+  vtkSlicerMarkupsModuleMRML
+  ${VTK_LIBRARIES}
   )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -45,8 +45,11 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(collisions)
 add_subdirectory(davinci-kinematics)
-add_subdirectory(tests)
 add_subdirectory(optim)
+
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()
 
 #-----------------------------------------------------------------------------
 SlicerMacroBuildModuleLogic(
