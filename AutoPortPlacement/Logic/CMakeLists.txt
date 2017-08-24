@@ -7,22 +7,14 @@ endif()
 #-----------------------------------------------------------------------------
 project(vtkSlicer${MODULE_NAME}ModuleLogic)
 
-set(CMAKE_MODULE_PATH
-  ${CMAKE_CURRENT_SOURCE_DIR}/CMake
-  ${CMAKE_MODULE_PATH})
-
 find_package(Eigen3 REQUIRED CONFIG)
-
-find_package(NLopt REQUIRED)
 
 set(KIT ${PROJECT_NAME})
 
 set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_LOGIC_EXPORT")
 
 set(${KIT}_INCLUDE_DIRECTORIES
-  ${NLopt_INCLUDE_DIRS}
   )
-include_directories(${${KIT}_INCLUDE_DIRECTORIES})
 
 set(${KIT}_SRCS
   vtkSlicer${MODULE_NAME}Logic.cxx
@@ -34,7 +26,6 @@ set(${KIT}_TARGET_LIBRARIES
   davinci
   ${ITK_LIBRARIES}
   Eigen3::Eigen
-  ${NLopt_LIBRARIES}
   optim
   vtkSlicerAnnotationsModuleMRML
   vtkSlicerMarkupsModuleMRML
