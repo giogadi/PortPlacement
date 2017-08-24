@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-int main(int argc, char* argv[])
+int main(int, char* [])
 {
   std::vector<Collisions::Cylisphere> c1, c2;
   std::vector<Collisions::Sphere> s1, s2;

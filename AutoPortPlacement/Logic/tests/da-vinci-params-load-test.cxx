@@ -1,7 +1,7 @@
 #include <davinci-kinematics/davinci.h>
 #include <cmath>
 
-int main(int argc, char** argv)
+int main(int, char* [])
 {
   DavinciKinematics kinematics;
 
