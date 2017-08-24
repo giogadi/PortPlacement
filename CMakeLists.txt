@@ -16,8 +16,12 @@ set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/e/e2/Slic
 set( CMAKE_POSITION_INDEPENDENT_CODE ON )
 
 #-----------------------------------------------------------------------------
+# Extension dependencies
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
+
+find_package(Eigen3 REQUIRED CONFIG)
+mark_as_superbuild(Eigen3_DIR)
 
 #-----------------------------------------------------------------------------
 add_subdirectory(PortPlacement)
