@@ -721,26 +721,6 @@ void DavinciKinematics::unscentedIK(const Eigen::Matrix4d& portFrame,
   covariance_qOut->swap(covariance_q);
 }
 
-namespace
-{
-  double fromPoseToExtraClearance(const DavinciKinematics& kin,
-                                  const Eigen::Matrix4d& portFrameL,
-                                  const Eigen::Matrix4d& portFrameR,
-                                  const Eigen::Matrix4d& targetPose)
-  {
-    std::vector<double> qL(6);
-    std::vector<double> qR(6);
-    std::vector<Collisions::Cylisphere> cylL, cylR;
-    std::vector<Collisions::Sphere> sL, sR;
-
-    kin.intraIK(portFrameL, targetPose, &qL);
-    kin.intraIK(portFrameR, targetPose, &qR);
-    kin.getExtraCylispheres(portFrameL, qL, &cylL);
-    kin.getExtraCylispheres(portFrameR, qR, &cylR);
-    return Collisions::distance(cylL, sL, cylR, sR);
-  }
-}
-
 double DavinciKinematics::fullClearances(const Eigen::Matrix4d& baseFrameL,
                                          const Eigen::Matrix4d& baseFrameR,
                                          const std::vector<double>& qL,
