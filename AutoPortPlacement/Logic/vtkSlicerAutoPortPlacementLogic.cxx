@@ -158,6 +158,11 @@ void vtkSlicerAutoPortPlacementLogic::RenderRobot()
 // Initializes the models and transforms for visualizing the Davinci robot.
 void vtkSlicerAutoPortPlacementLogic::InitRobot()
 {
+  if (!this->GetMRMLScene())
+    {
+    return;
+    }
+
   std::vector<Collisions::Cylisphere> cylispheres;
   std::vector<Collisions::Sphere> spheres(2);
 
