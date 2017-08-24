@@ -44,4 +44,5 @@ add_subdirectory(PortPlacement)
 add_subdirectory(AutoPortPlacement)
 
 #-----------------------------------------------------------------------------
+include(${Slicer_EXTENSION_GENERATE_CONFIG})
 include(${Slicer_EXTENSION_CPACK})

@@ -15,3 +15,5 @@ target_link_libraries(optim
 target_include_directories(optim PUBLIC
   ${NLOPT_INCLUDE_DIRS}
   )
+
+set_property(GLOBAL APPEND PROPERTY Slicer_TARGETS optim)

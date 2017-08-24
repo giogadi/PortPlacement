@@ -11,3 +11,5 @@ target_link_libraries(davinci
   ${ITK_LIBRARIES}
   ${VTK_LIBRARIES}
   )
+
+set_property(GLOBAL APPEND PROPERTY Slicer_TARGETS davinci)
