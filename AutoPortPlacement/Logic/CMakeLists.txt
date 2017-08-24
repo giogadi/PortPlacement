@@ -11,7 +11,13 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake
   ${CMAKE_MODULE_PATH})
 
-find_package(Eigen3 REQUIRED)
+# Since Slicer extension is named "Eigen", if needed explicitly set
+# "Eigen3_DIR" variable
+if(DEFINED Eigen_DIR)
+  set(Eigen3_DIR ${Eigen_DIR})
+endif()
+find_package(Eigen3 REQUIRED CONFIG)
+
 find_package(NLopt REQUIRED)
 
 set(KIT ${PROJECT_NAME})
