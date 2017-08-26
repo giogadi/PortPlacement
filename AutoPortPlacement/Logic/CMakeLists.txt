@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.5)
 
 if(NOT DEFINED CMAKE_MACOSX_RPATH)
   set(CMAKE_MACOSX_RPATH OFF)
@@ -7,22 +7,14 @@ endif()
 #-----------------------------------------------------------------------------
 project(vtkSlicer${MODULE_NAME}ModuleLogic)
 
-set(CMAKE_MODULE_PATH
-  ${CMAKE_CURRENT_SOURCE_DIR}/CMake
-  ${CMAKE_MODULE_PATH})
-
-find_package(Eigen3 REQUIRED)
-find_package(NLopt REQUIRED)
+find_package(Eigen3 REQUIRED CONFIG)
 
 set(KIT ${PROJECT_NAME})
 
 set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_LOGIC_EXPORT")
 
 set(${KIT}_INCLUDE_DIRECTORIES
-  ${EIGEN3_INCLUDE_DIR}
-  ${NLopt_INCLUDE_DIRS}
   )
-include_directories(${${KIT}_INCLUDE_DIRECTORIES})
 
 set(${KIT}_SRCS
   vtkSlicer${MODULE_NAME}Logic.cxx
@@ -33,7 +25,7 @@ set(${KIT}_TARGET_LIBRARIES
   collisions
   davinci
   ${ITK_LIBRARIES}
-  ${NLopt_LIBRARIES}
+  Eigen3::Eigen
   optim
   vtkSlicerAnnotationsModuleMRML
   vtkSlicerMarkupsModuleMRML

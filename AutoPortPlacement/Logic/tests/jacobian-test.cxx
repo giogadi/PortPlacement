@@ -1,7 +1,7 @@
 #include <davinci-kinematics/davinci.h>
 #include <iostream>
 
-int main(int argc, char** argv)
+int main(int, char* [])
 {
   std::vector<double> q(6, 0.0);
   q[0] = 0.5;

@@ -235,7 +235,7 @@ class PortPlacementWidget:
     # Problem: currentIndex() can be valid even when there is no
     # visible selection. This will have to do for now while I figure
     # out how to making Python bindings to QList<QModelIndex> (ugh)
-    index = self.portsTable.selectionModel().currentIndex()
+    index = self.portsTable.selectionModel().currentIndex
     self.logic.markupsNode.RemoveMarkup(index.row())
     self.updateTable()
 
@@ -718,7 +718,7 @@ class PortPlacementTest(unittest.TestCase):
 
     target_p = [0,0,0]
     targetNode.GetNthFiducialPosition(0, target_p)
-    targetWorld = target_p + [1]
+    targetWorld = target_p
 
     # check retargeting by verifying that tools' positions are
     # unchanged and that their y-axes are oriented toward point
@@ -731,7 +731,7 @@ class PortPlacementTest(unittest.TestCase):
       diff = numpy.array(p) - numpy.array(tool_pos)
       self.assertTrue(numpy.dot(diff,diff) < 1e-10)
 
-      targetLocal = [0,0,0,1]
+      targetLocal = [0,0,0]
       logic.toolList[i].modelNode.TransformPointFromWorld(targetWorld, targetLocal)
 
       targetLocal = numpy.array(targetLocal)[0:3]
