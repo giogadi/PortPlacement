@@ -5,7 +5,7 @@ project(PortPlacement)
 #-----------------------------------------------------------------------------
 set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/PortPlacement")
 set(EXTENSION_CATEGORY "IGT")
-set(EXTENSION_CONTRIBUTORS "Andinet Enquobahrie (Kitware), Luis G. Torres (UNC)")
+set(EXTENSION_CONTRIBUTORS "Andinet Enquobahrie (Kitware), Luis G. Torres (UNC), Jean-Christophe Fillion-Robin (Kitware)")
 set(EXTENSION_DESCRIPTION "Assists in the planning of surgical port placement in a laparoscopic procedure.")
 set(EXTENSION_ICONURL "http://www.slicer.org/slicerWiki/images/a/a7/Portplacement_icon.png")
 set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/images/3/32/Portplacement.png")
