@@ -4,13 +4,14 @@ project(PortPlacement)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/PortPlacement")
-set(EXTENSION_CATEGORY "Port Placement")
-set(EXTENSION_CONTRIBUTORS "Luis G. Torres (UNC)")
+set(EXTENSION_CATEGORY "IGT")
+set(EXTENSION_CONTRIBUTORS "Andinet Enquobahrie (Kitware), Luis G. Torres (UNC), Jean-Christophe Fillion-Robin (Kitware)")
 set(EXTENSION_DESCRIPTION "Assists in the planning of surgical port placement in a laparoscopic procedure.")
-set(EXTENSION_ICONURL "http://viewvc.slicer.org/viewvc.cgi/Slicer4/trunk/Extensions/Testing/PortPlacement/PortPlacement.png?revision=21747&view=co")
-set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/e/e2/Slicer-r19441-PortPlacement-screenshot.png")
+set(EXTENSION_ICONURL "http://www.slicer.org/slicerWiki/images/a/a7/Portplacement_icon.png")
+set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/images/3/32/Portplacement.png")
 set(EXTENSION_DEPENDS "Eigen3")
 set(EXTENSION_BUILD_SUBDIRECTORY inner-build)
+set(EXTENSION_STATUS "This extension is intended for public use and we expect to fully maintain it.")
 
 set(SUPERBUILD_TOPLEVEL_PROJECT inner)
 
